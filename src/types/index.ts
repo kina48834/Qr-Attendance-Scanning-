@@ -1,0 +1,71 @@
+export type UserRole = 'administrator' | 'organiser' | 'student' | 'teacher';
+
+export type TeacherApprovalStatus = 'approved' | 'pending' | 'rejected';
+
+export interface User {
+  id: string;
+  /** Numeric profile ID shown in the header (e.g. 482913) */
+  publicId?: number;
+  email: string;
+  name: string;
+  role: UserRole;
+  avatar?: string;
+  /** Self-registered teachers start as pending until approved in User Management */
+  approvalStatus?: TeacherApprovalStatus;
+  /** Teacher / staff profile (optional for other roles) */
+  phone?: string;
+  department?: string;
+  employeeId?: string;
+  officeLocation?: string;
+  createdAt: string;
+  /** Only stored in data layer; never in auth session */
+  password?: string;
+}
+
+export interface Event {
+  id: string;
+  title: string;
+  description: string;
+  location: string;
+  startDate: string;
+  endDate: string;
+  organiserId: string;
+  organiserName: string;
+  status: 'draft' | 'published' | 'completed' | 'cancelled';
+  /** Event QR payload for pattern recognition; student scan matches this to record attendance (e.g. EVT-evt-1) */
+  qrCodeData?: string;
+  maxAttendees?: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AttendanceRecord {
+  id: string;
+  eventId: string;
+  userId: string;
+  userName: string;
+  userEmail: string;
+  scannedAt: string;
+  qrCodeData: string;
+}
+
+export interface EventRegistration {
+  id: string;
+  eventId: string;
+  userId: string;
+  registeredAt: string;
+}
+
+export interface DashboardStats {
+  totalUsers: number;
+  activeEvents: number;
+  completedEvents: number;
+  totalAttendanceRecords: number;
+  eventsThisMonth: number;
+}
+
+export interface AnalyticsData {
+  eventParticipation: { eventId: string; eventTitle: string; attended: number; registered: number }[];
+  attendanceTrends: { date: string; count: number }[];
+  userActivity: { role: string; count: number }[];
+}
