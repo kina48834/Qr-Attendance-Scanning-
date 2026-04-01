@@ -29,8 +29,9 @@ Run in this exact order:
 7. `09_comments.sql` — renames legacy `UNIQUE` constraints to `uq_attendance_event_user` / `uq_event_registrations_event_user` if needed, then `COMMENT ON` for documentation
 8. `05_rls.sql` — RLS enabled + permissive policies (anon key app; tighten for production)
 9. `06_seed.sql` — demo users + sample events: `evt-1` (published), `evt-2` (completed); seed teacher includes `phone` so `chk_users_teacher_staff_fields` passes. The React app does not duplicate this seed in code — it only talks to Postgres via Supabase.
+10. `10_auth_public_users_alignment.sql` — optional note: seed `public.users` ids (`admin-1`, …) vs Supabase Auth UUIDs; login tries table password first. Safe to run (returns a single-row `select 1`).
 
-**Merged:** `00_all_in_one.sql` uses the same order: through `09` content inlined, then RLS, then seed.
+**Merged:** `00_all_in_one.sql` inlines the same order through `09`, then RLS, seed, and the alignment note from `10`.
 
 ## Migrations from an older schema
 

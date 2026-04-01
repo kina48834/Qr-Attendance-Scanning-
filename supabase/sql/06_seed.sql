@@ -1,4 +1,5 @@
 -- Seed data (teacher row must satisfy chk_users_teacher_staff_fields: phone, department, employee_id)
+-- Demo user ids (admin-1, …) are not Supabase Auth UUIDs; the app signs them in via public.users password first (see 10_auth_public_users_alignment.sql).
 insert into public.users (id, public_id, email, name, role, approval_status, phone, department, employee_id, created_at, password)
 values
   ('admin-1', 910245, 'admin@gmail.com', 'Admin', 'administrator', null, null, null, null, now(), 'admin123'),

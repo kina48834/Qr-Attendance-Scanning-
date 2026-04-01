@@ -6,6 +6,14 @@ import { PasswordField } from '@/components/PasswordField';
 import { teacherSignInBlockMessage } from '@/utils/userApproval';
 import { authSignIn, authSignOut, SUPABASE_AUTH_PASSWORD_MARKER } from '@/supabase/authFlow';
 import { fetchUserById, fetchUserByEmailForLegacyLogin } from '@/supabase/dataService';
+import type { User } from '@/types';
+
+function navigateAfterLogin(role: User['role'], navigate: ReturnType<typeof useNavigate>) {
+  if (role === 'administrator') navigate('/admin', { replace: true });
+  else if (role === 'organiser') navigate('/organiser', { replace: true });
+  else if (role === 'teacher') navigate('/teacher', { replace: true });
+  else navigate('/student', { replace: true });
+}
 
 export function Login() {
   const [email, setEmail] = useState('');
@@ -24,12 +32,42 @@ export function Login() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    const emailTrim = email.trim();
 
-    const { data: signData, error: signErr } = await authSignIn(email.trim(), password);
+    let tableUser: Awaited<ReturnType<typeof fetchUserByEmailForLegacyLogin>>;
+    try {
+      tableUser = await fetchUserByEmailForLegacyLogin(emailTrim);
+    } catch {
+      setError('Could not reach the database. Check your connection and Supabase settings.');
+      return;
+    }
+
+    // 1) Seed / legacy: password in public.users (ids like admin-1). Run before Auth so demo
+    //    works on Vercel even if Authentication has a same-email user with a different UUID.
+    if (
+      tableUser &&
+      tableUser.password !== SUPABASE_AUTH_PASSWORD_MARKER &&
+      tableUser.password === password
+    ) {
+      const block = teacherSignInBlockMessage(tableUser);
+      if (block) {
+        setError(block);
+        return;
+      }
+      const { password: _, ...sessionUser } = tableUser;
+      setUser({ ...sessionUser });
+      navigateAfterLogin(tableUser.role, navigate);
+      return;
+    }
+
+    // 2) Supabase Auth + profile where public.users.id = auth user id (registered flows)
+    const { data: signData, error: signErr } = await authSignIn(emailTrim, password);
     if (!signErr && signData.user) {
       const profile = await fetchUserById(signData.user.id);
       if (!profile) {
-        setError('Your account has no profile in the database. Contact an administrator.');
+        setError(
+          'No profile row in public.users for this Auth account (id must match). Ask an admin to run the SQL seed or fix your profile.'
+        );
         await authSignOut();
         return;
       }
@@ -41,46 +79,23 @@ export function Login() {
       }
       const { password: _, ...sessionUser } = profile;
       setUser({ ...sessionUser });
-      if (profile.role === 'administrator') navigate('/admin', { replace: true });
-      else if (profile.role === 'organiser') navigate('/organiser', { replace: true });
-      else if (profile.role === 'teacher') navigate('/teacher', { replace: true });
-      else navigate('/student', { replace: true });
+      navigateAfterLogin(profile.role, navigate);
       return;
     }
 
-    let user: Awaited<ReturnType<typeof fetchUserByEmailForLegacyLogin>>;
-    try {
-      user = await fetchUserByEmailForLegacyLogin(email);
-    } catch {
-      setError(signErr?.message ?? 'Could not reach the database. Check your connection and Supabase settings.');
-      return;
-    }
-    if (!user) {
-      setError(signErr?.message ?? 'No account found with this email.');
-      return;
-    }
-    if (user.password === SUPABASE_AUTH_PASSWORD_MARKER) {
+    // 3) Remaining errors
+    if (tableUser?.password === SUPABASE_AUTH_PASSWORD_MARKER) {
       setError(
         signErr?.message ??
           'This email is registered with Supabase Auth. Use the password you chose at registration (not the demo table passwords).'
       );
       return;
     }
-    if (user.password !== password) {
+    if (tableUser) {
       setError('Incorrect password.');
       return;
     }
-    const block = teacherSignInBlockMessage(user);
-    if (block) {
-      setError(block);
-      return;
-    }
-    const { password: _, ...sessionUser } = user;
-    setUser({ ...sessionUser });
-    if (user.role === 'administrator') navigate('/admin', { replace: true });
-    else if (user.role === 'organiser') navigate('/organiser', { replace: true });
-    else if (user.role === 'teacher') navigate('/teacher', { replace: true });
-    else navigate('/student', { replace: true });
+    setError(signErr?.message ?? 'No account found with this email.');
   };
 
   return (
@@ -94,13 +109,16 @@ export function Login() {
           <p className="font-medium text-slate-800 mb-2">Signing in</p>
           <ul className="space-y-2 list-disc list-inside text-slate-600 leading-relaxed">
             <li>
-              <span className="font-medium text-slate-700">Students</span> — use the email and password from{' '}
-              <Link to="/register" className="text-campus-primary font-medium hover:underline">registration</Link>
-              . After sign-in you can browse events and scan QR codes for attendance.
+              <span className="font-medium text-slate-700">Demo accounts</span> — passwords live in{' '}
+              <code className="text-slate-800">public.users</code> (SQL seed). Sign-in uses those first.
             </li>
             <li>
-              <span className="font-medium text-slate-700">Teachers</span> — same email and password as when you registered.
-              New teacher accounts need an administrator to approve them in User Management before you can sign in here.
+              <span className="font-medium text-slate-700">Students</span> — after{' '}
+              <Link to="/register" className="text-campus-primary font-medium hover:underline">registration</Link>
+              , use the email and password you set (Supabase Auth + matching profile row).
+            </li>
+            <li>
+              <span className="font-medium text-slate-700">Teachers</span> — same as registration; new teachers need approval in User Management before sign-in.
             </li>
           </ul>
         </div>
@@ -155,7 +173,7 @@ export function Login() {
         <div className="mt-6 p-4 rounded-xl bg-slate-50 border border-slate-200">
           <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Demo seed accounts (login)</p>
           <p className="text-xs text-slate-600 mb-2 leading-relaxed">
-            These exist in the database table <code className="text-slate-800">public.users</code> (Table Editor). They are not created in Authentication unless you add them there; sign-in still works using the passwords below.
+            Rows in <code className="text-slate-800">public.users</code> from <code className="text-slate-800">06_seed.sql</code>. They are not required in Authentication; the app checks this table password before Auth.
           </p>
           <ul className="text-sm text-slate-700 space-y-1.5">
             <li><strong>Admin:</strong> admin@gmail.com / admin123</li>

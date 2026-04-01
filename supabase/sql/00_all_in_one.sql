@@ -354,3 +354,10 @@ values
     now()
   )
 on conflict (id) do nothing;
+
+-- --- 10_auth_public_users_alignment.sql (note) ---
+-- Seed public.users ids (admin-1, …) differ from Supabase Auth UUIDs. The app tries table
+-- password login before Auth so demo accounts work even if stray Auth users exist. Registered
+-- users use Auth + public.users.id = auth user id. Optional: remove duplicate Auth users for
+-- demo emails in Dashboard → Authentication → Users.
+select 1 as auth_public_users_alignment_note;
