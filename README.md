@@ -20,8 +20,20 @@ SUPABASE_SECRET_KEY=sb_secret_xxx
 SUPABASE_DB_URL=postgresql://postgres:[YOUR-PASSWORD]@db.YOUR_PROJECT_REF.supabase.co:5432/postgres
 ```
 
-- `VITE_` keys are used by the frontend.
-- `SUPABASE_SECRET_KEY` and DB URL are server-only values (do not expose in frontend code).
+- `VITE_` keys are used by the frontend and are **required** for the app to run.
+- `SUPABASE_SECRET_KEY` and DB URL are optional for local tooling only; this repo has **no Vercel serverless API** — all app data goes through **Supabase** from the browser using the anon key and your RLS policies.
+
+## Deploy on Vercel
+
+The repo includes [`vercel.json`](vercel.json) (Vite build, `dist` output, SPA fallback for React Router).
+
+1. Import the GitHub repo in [Vercel](https://vercel.com) (or run `vercel` from the CLI).
+2. Under **Project → Settings → Environment Variables**, add for **Production** (and Preview if you use it):
+   - `VITE_SUPABASE_URL` — your Supabase project URL (`https://xxxxx.supabase.co`).
+   - `VITE_SUPABASE_ANON_KEY` — **anon** / **publishable** key (Settings → API in Supabase).
+3. Redeploy after changing env vars (Vite bakes `VITE_*` in at **build** time).
+
+**Supabase Auth (registration / password sign-in):** In Supabase **Authentication → URL configuration**, set **Site URL** to your Vercel URL (e.g. `https://your-app.vercel.app`) and add the same under **Redirect URLs** so email confirmation and OAuth redirects work.
 
 ## Where to see users in Supabase (important)
 
