@@ -1,8 +1,9 @@
-import { createContext, useContext, useState, useCallback, useEffect, ReactNode } from 'react';
+import { useContext, useState, useCallback, useEffect, ReactNode, createContext } from 'react';
 import type { User } from '@/types';
 import { supabase } from '@/supabase/client';
 import { fetchUserById } from '@/supabase/dataService';
 import { authSignOut } from '@/supabase/authFlow';
+import { isSupabaseAuthUserId } from '@/utils/supabaseAuthIds';
 
 interface AuthContextType {
   user: User | null;
@@ -13,16 +14,31 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUserState] = useState<User | null>(() => {
+function readStoredUser(): User | null {
+  try {
     const stored = localStorage.getItem('campus-connect-user');
     return stored ? (JSON.parse(stored) as User) : null;
-  });
+  } catch {
+    return null;
+  }
+}
+
+export function AuthProvider({ children }: { children: ReactNode }) {
+  const [user, setUserState] = useState<User | null>(() => readStoredUser());
 
   useEffect(() => {
     let cancelled = false;
     void supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (cancelled || !session?.user) return;
+      const parsed = readStoredUser();
+      if (
+        parsed?.id &&
+        !isSupabaseAuthUserId(parsed.id) &&
+        parsed.id !== session.user.id
+      ) {
+        await supabase.auth.signOut();
+        return;
+      }
       try {
         const profile = await fetchUserById(session.user.id);
         if (cancelled || !profile) return;
@@ -36,13 +52,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (event === 'SIGNED_OUT' || !session?.user) {
-        if (event === 'SIGNED_OUT') {
+      if (event === 'SIGNED_OUT') {
+        const parsed = readStoredUser();
+        const id = parsed?.id;
+        if (id && isSupabaseAuthUserId(id)) {
           setUserState(null);
           localStorage.removeItem('campus-connect-user');
         }
         return;
       }
+      if (!session?.user) return;
       try {
         const profile = await fetchUserById(session.user.id);
         if (!profile) return;

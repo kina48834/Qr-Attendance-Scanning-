@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { useData } from '@/context/DataContext';
@@ -7,7 +7,9 @@ import { EventListSearchBar } from '@/components/EventListSearchBar';
 import { filterEventsBySearch, textMatchesEventSearch } from '@/utils/eventSearch';
 import { getEventQrCodeData } from '@/utils/attendanceQR';
 import { format } from 'date-fns';
-import { Users } from 'lucide-react';
+import { Users, QrCode } from 'lucide-react';
+import { PageHeader, RoleBadge } from '@/components/PageHeader';
+import { AttendanceExportButtons } from '@/components/AttendanceExportButtons';
 
 export function OrganiserAttendance() {
   const { user } = useAuth();
@@ -49,42 +51,104 @@ export function OrganiserAttendance() {
     [allMyAttendance, eventSearch]
   );
 
+  const selectedExportRecords = useMemo(
+    () => attendance.map((a) => ({ userName: a.userName, userEmail: a.userEmail, scannedAt: a.scannedAt })),
+    [attendance]
+  );
+
+  const selectedExportMeta = useMemo(() => {
+    if (!selectedEvent) return null;
+    return {
+      title: selectedEvent.title,
+      location: selectedEvent.location,
+      startDate: selectedEvent.startDate,
+      organiserName: selectedEvent.organiserName,
+    };
+  }, [selectedEvent]);
+
+  const onSelectedPdf = useCallback(async () => {
+    if (!selectedExportMeta) return;
+    const { exportSingleEventAttendancePdf } = await import('@/utils/attendanceExport');
+    exportSingleEventAttendancePdf(selectedExportMeta, selectedExportRecords);
+  }, [selectedExportMeta, selectedExportRecords]);
+
+  const onSelectedExcel = useCallback(async () => {
+    if (!selectedExportMeta) return;
+    const { exportSingleEventAttendanceXlsx } = await import('@/utils/attendanceExport');
+    exportSingleEventAttendanceXlsx(selectedExportMeta, selectedExportRecords);
+  }, [selectedExportMeta, selectedExportRecords]);
+
+  const multiExportRows = useMemo(
+    () =>
+      visibleAttendanceRows.map((a) => ({
+        eventTitle: a.eventTitle,
+        userName: a.userName,
+        userEmail: a.userEmail,
+        scannedAt: a.scannedAt,
+      })),
+    [visibleAttendanceRows]
+  );
+
+  const onAllPdf = useCallback(async () => {
+    const { exportMultiEventAttendancePdf } = await import('@/utils/attendanceExport');
+    exportMultiEventAttendancePdf(
+      'All my events — attendance',
+      'Filtered list (matches current search)',
+      multiExportRows
+    );
+  }, [multiExportRows]);
+
+  const onAllExcel = useCallback(async () => {
+    const { exportMultiEventAttendanceXlsx } = await import('@/utils/attendanceExport');
+    exportMultiEventAttendanceXlsx('All my events — attendance', multiExportRows);
+  }, [multiExportRows]);
+
   useEffect(() => {
     if (eventId && selectableEvents.some((e) => e.id === eventId)) setSelectedEventId(eventId);
     else if (!selectedEventId && selectableEvents.length > 0) setSelectedEventId(selectableEvents[0].id);
   }, [eventId, selectableEvents, selectedEventId]);
 
   return (
-    <div className="space-y-6 w-full min-w-0">
-      <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center sm:justify-between gap-4">
-        <div className="min-w-0">
-          <h1 className="text-xl sm:text-2xl font-bold text-slate-900">Attendance</h1>
-          <p className="text-slate-600 mt-1">Event QR for students, scan student QR codes, and view list</p>
-        </div>
+    <div className="w-full min-w-0 space-y-5">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <PageHeader
+          title="Attendance"
+          description="Event QR for students, scan student QR codes, and view lists. Export rosters as PDF or Excel."
+          badge={<RoleBadge>Organiser</RoleBadge>}
+        />
         <Link
           to="/organiser/scan-attendance"
-          className="px-4 py-2.5 bg-campus-primary text-white rounded-lg font-medium hover:bg-campus-secondary shrink-0 w-full sm:w-auto text-center"
+          className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-campus-primary px-5 py-2.5 text-sm font-semibold text-white shadow-md shadow-blue-500/15 transition-colors hover:bg-campus-secondary"
         >
+          <QrCode className="h-4 w-4" aria-hidden />
           Scan student QR codes
         </Link>
       </div>
 
       {selectableEvents.length > 0 && (
-        <EventListSearchBar
-          id="organiser-attendance-events-search"
-          value={eventSearch}
-          onChange={setEventSearch}
-          className="max-w-xl"
-        />
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <EventListSearchBar
+            id="organiser-attendance-events-search"
+            value={eventSearch}
+            onChange={setEventSearch}
+            size="compact"
+            className="sm:max-w-sm"
+            placeholder="Filter events and attendance rows…"
+          />
+          <p className="text-xs text-slate-500 tabular-nums">
+            {visibleAttendanceRows.length} of {allMyAttendance.length} attendance row
+            {allMyAttendance.length === 1 ? '' : 's'}
+          </p>
+        </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
-          <h2 className="font-semibold text-slate-900 mb-3">Event QR Code</h2>
-          <p className="text-sm text-slate-600 mb-4">
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+        <div className="rounded-2xl border border-slate-200/90 bg-white p-6 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
+          <h2 className="font-semibold text-slate-900">Event QR code</h2>
+          <p className="mt-1 text-sm text-slate-600">
             Students scan this event QR (Scan QR) to record attendance.
           </p>
-          <div className="flex flex-col items-center">
+          <div className="mt-4 flex flex-col items-center">
             {selectedEvent ? (
               <>
                 <QRCodeDisplay
@@ -92,21 +156,28 @@ export function OrganiserAttendance() {
                   size={220}
                   eventTitle={selectedEvent.title}
                 />
-                <p className="mt-2 text-xs text-slate-500 font-mono">Event code: {getEventQrCodeData(selectedEvent.id, selectedEvent.qrCodeData)}</p>
-                <p className="text-xs text-slate-500 mt-0.5">Students scan this QR on the Scan QR page to record attendance.</p>
+                <p className="mt-2 font-mono text-xs text-slate-500">
+                  Event code: {getEventQrCodeData(selectedEvent.id, selectedEvent.qrCodeData)}
+                </p>
+                <p className="mt-0.5 text-center text-xs text-slate-500">
+                  Students scan this QR on the Scan QR page to record attendance.
+                </p>
               </>
             ) : (
-              <div className="text-slate-500 py-8">Select an event to show its QR code.</div>
+              <div className="py-8 text-slate-500">Select an event to show its QR code.</div>
             )}
           </div>
           <div className="mt-4">
-            <label className="block text-sm font-medium text-slate-700 mb-2">Select event</label>
+            <label htmlFor="organiser-attendance-event-select" className="mb-2 block text-sm font-medium text-slate-700">
+              Select event
+            </label>
             <select
+              id="organiser-attendance-event-select"
               value={selectedEventId ?? ''}
               onChange={(e) => setSelectedEventId(e.target.value || null)}
-              className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-campus-primary focus:border-campus-primary"
+              className="w-full rounded-lg border border-slate-300 px-3 py-2 focus:border-campus-primary focus:ring-2 focus:ring-campus-primary"
             >
-              <option value="">Choose event...</option>
+              <option value="">Choose event…</option>
               {filteredSelectableEvents.map((e) => (
                 <option key={e.id} value={e.id}>
                   {e.title} — {format(new Date(e.startDate), 'MMM d')}
@@ -114,83 +185,147 @@ export function OrganiserAttendance() {
               ))}
             </select>
             {selectableEvents.length > 0 && filteredSelectableEvents.length === 0 && (
-              <p className="text-sm text-amber-700 mt-2">No events match your search. Clear the filter to see all your events.</p>
+              <p className="mt-2 text-sm text-amber-700">
+                No events match your search. Clear the filter to see all your events.
+              </p>
             )}
           </div>
         </div>
 
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-          <div className="px-5 py-4 border-b border-slate-200 flex items-center gap-2">
-            <Users className="w-5 h-5 text-slate-600" />
-            <h2 className="font-semibold text-slate-900">Attendance list</h2>
+        <div className="overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
+          <div className="flex flex-col gap-3 border-b border-slate-100 bg-slate-50/90 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+            <div className="flex items-center gap-2 min-w-0">
+              <Users className="h-5 w-5 shrink-0 text-campus-primary" aria-hidden />
+              <div>
+                <h2 className="font-semibold text-slate-900">Attendance list</h2>
+                {selectedEvent ? (
+                  <p className="text-sm text-slate-500">
+                    {attendance.length} scan{attendance.length === 1 ? '' : 's'} — {selectedEvent.title}
+                  </p>
+                ) : (
+                  <p className="text-sm text-slate-500">Select an event</p>
+                )}
+              </div>
+            </div>
+            <AttendanceExportButtons
+              disabled={!selectedEvent || attendance.length === 0}
+              onExportPdf={onSelectedPdf}
+              onExportExcel={onSelectedExcel}
+              exportLabel="Selected event"
+            />
           </div>
           {selectedEvent ? (
-            <>
-              <div className="px-5 py-2 bg-slate-50 text-sm text-slate-600">
-                {attendance.length} scan(s) for &quot;{selectedEvent.title}&quot;
-              </div>
-              <div className="max-h-96 overflow-x-auto overflow-y-auto">
-                <table className="w-full min-w-[400px]">
-                  <thead className="sticky top-0 bg-white">
-                    <tr className="text-left text-sm text-slate-600 border-b border-slate-200">
-                      <th className="px-5 py-3 font-medium">Event</th>
-                      <th className="px-5 py-3 font-medium">Name</th>
-                      <th className="px-5 py-3 font-medium">Email</th>
-                      <th className="px-5 py-3 font-medium">Scanned at</th>
+            <div className="max-h-96 overflow-x-auto overflow-y-auto">
+              <table className="w-full min-w-[400px] text-sm">
+                <thead className="sticky top-0 z-[1] border-b border-slate-200 bg-slate-50/95">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
+                      #
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
+                      Name
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
+                      Email
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
+                      Scanned at
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {attendance.length === 0 ? (
+                    <tr>
+                      <td colSpan={4} className="px-4 py-10 text-center text-slate-500">
+                        No scans yet for this event.
+                      </td>
                     </tr>
-                  </thead>
-                  <tbody>
-                    {attendance.map((a) => (
-                      <tr key={a.id} className="border-b border-slate-100 hover:bg-slate-50">
-                        <td className="px-5 py-3 text-slate-700 font-medium">{selectedEvent.title}</td>
-                        <td className="px-5 py-3 font-medium text-slate-900">{a.userName}</td>
-                        <td className="px-5 py-3 text-slate-600">{a.userEmail}</td>
-                        <td className="px-5 py-3 text-slate-600">{format(new Date(a.scannedAt), 'MMM d, yyyy HH:mm')}</td>
+                  ) : (
+                    attendance.map((a, i) => (
+                      <tr key={a.id} className="hover:bg-slate-50/80">
+                        <td className="px-4 py-3 tabular-nums text-slate-500">{i + 1}</td>
+                        <td className="px-4 py-3 font-medium text-slate-900">{a.userName}</td>
+                        <td className="px-4 py-3 text-slate-600">{a.userEmail}</td>
+                        <td className="px-4 py-3 tabular-nums text-slate-600">
+                          {format(new Date(a.scannedAt), 'MMM d, yyyy HH:mm')}
+                        </td>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
           ) : (
             <div className="p-8 text-center text-slate-500">Select an event to view attendance.</div>
           )}
         </div>
       </div>
 
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-        <div className="px-5 py-4 border-b border-slate-200">
-          <h2 className="font-semibold text-slate-900">All attendance (by event name)</h2>
-          <p className="text-sm text-slate-600 mt-1">Every student who scanned for your events, with event name</p>
+      <div className="overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
+        <div className="flex flex-col gap-3 border-b border-slate-100 bg-slate-50/90 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+          <div>
+            <h2 className="font-semibold text-slate-900">All attendance (by event)</h2>
+            <p className="mt-0.5 text-sm text-slate-600">
+              Every student who scanned for your events — respects the search filter above
+            </p>
+          </div>
+          <AttendanceExportButtons
+            disabled={visibleAttendanceRows.length === 0}
+            onExportPdf={onAllPdf}
+            onExportExcel={onAllExcel}
+            exportLabel="Filtered table"
+          />
         </div>
-        <div className="overflow-x-auto max-h-96 overflow-y-auto">
-          <table className="w-full min-w-[400px]">
-            <thead className="sticky top-0 bg-white">
-              <tr className="text-left text-sm text-slate-600 border-b border-slate-200">
-                <th className="px-5 py-3 font-medium">Event</th>
-                <th className="px-5 py-3 font-medium">Name</th>
-                <th className="px-5 py-3 font-medium">Email</th>
-                <th className="px-5 py-3 font-medium">Scanned at</th>
+        <div className="max-h-96 overflow-x-auto overflow-y-auto">
+          <table className="w-full min-w-[400px] text-sm">
+            <thead className="sticky top-0 z-[1] border-b border-slate-200 bg-slate-50/95">
+              <tr>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
+                  #
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
+                  Event
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
+                  Name
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
+                  Email
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
+                  Scanned at
+                </th>
               </tr>
             </thead>
-            <tbody>
-              {visibleAttendanceRows.map((a) => (
-                <tr key={a.id} className="border-b border-slate-100 hover:bg-slate-50">
-                  <td className="px-5 py-3 text-slate-700 font-medium">{a.eventTitle}</td>
-                  <td className="px-5 py-3 font-medium text-slate-900">{a.userName}</td>
-                  <td className="px-5 py-3 text-slate-600">{a.userEmail}</td>
-                  <td className="px-5 py-3 text-slate-600">{format(new Date(a.scannedAt), 'MMM d, yyyy HH:mm')}</td>
+            <tbody className="divide-y divide-slate-100">
+              {allMyAttendance.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="px-4 py-10 text-center text-slate-500">
+                    No scanned attendance for your events yet.
+                  </td>
                 </tr>
-              ))}
+              ) : visibleAttendanceRows.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="px-4 py-10 text-center text-slate-500">
+                    No rows match your search.
+                  </td>
+                </tr>
+              ) : (
+                visibleAttendanceRows.map((a, i) => (
+                  <tr key={a.id} className="hover:bg-slate-50/80">
+                    <td className="px-4 py-3 tabular-nums text-slate-500">{i + 1}</td>
+                    <td className="px-4 py-3 font-medium text-slate-800">{a.eventTitle}</td>
+                    <td className="px-4 py-3 font-medium text-slate-900">{a.userName}</td>
+                    <td className="px-4 py-3 text-slate-600">{a.userEmail}</td>
+                    <td className="px-4 py-3 tabular-nums text-slate-600">
+                      {format(new Date(a.scannedAt), 'MMM d, yyyy HH:mm')}
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
-        {allMyAttendance.length === 0 && (
-          <div className="p-8 text-center text-slate-500">No scanned attendance for your events yet.</div>
-        )}
-        {allMyAttendance.length > 0 && visibleAttendanceRows.length === 0 && (
-          <div className="p-8 text-center text-slate-500">No rows match your search.</div>
-        )}
       </div>
     </div>
   );

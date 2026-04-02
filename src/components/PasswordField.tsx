@@ -1,5 +1,11 @@
 import { useId, useState } from 'react';
 import { Eye, EyeOff } from 'lucide-react';
+import {
+  authLabelClass,
+  authPasswordInputClass,
+  landingAuthLabelClass,
+  landingAuthPasswordInputClass,
+} from '@/components/auth/authClasses';
 
 type PasswordFieldProps = {
   label: string;
@@ -10,10 +16,9 @@ type PasswordFieldProps = {
   placeholder?: string;
   autoComplete?: string;
   id?: string;
+  /** `landing` matches `/about` dark auth pages */
+  theme?: 'default' | 'landing';
 };
-
-const inputClass =
-  'w-full border border-slate-300 rounded-lg py-2 pl-3 pr-11 focus:outline-none focus:ring-2 focus:ring-campus-primary focus:border-campus-primary';
 
 export function PasswordField({
   label,
@@ -24,14 +29,21 @@ export function PasswordField({
   placeholder,
   autoComplete = 'current-password',
   id: idProp,
+  theme = 'default',
 }: PasswordFieldProps) {
   const genId = useId();
   const fieldId = idProp ?? genId;
   const [visible, setVisible] = useState(false);
+  const isLanding = theme === 'landing';
+  const labelClass = isLanding ? landingAuthLabelClass : authLabelClass;
+  const inputClass = isLanding ? landingAuthPasswordInputClass : authPasswordInputClass;
+  const toggleClass = isLanding
+    ? 'text-white/45 hover:text-white focus-visible:ring-landing-sky'
+    : 'text-slate-500 hover:text-slate-800 focus-visible:ring-campus-primary';
 
   return (
     <div>
-      <label htmlFor={fieldId} className="block text-sm font-medium text-slate-700 mb-1">
+      <label htmlFor={fieldId} className={labelClass}>
         {label}
       </label>
       <div className="relative">
@@ -49,7 +61,7 @@ export function PasswordField({
         <button
           type="button"
           onClick={() => setVisible((v) => !v)}
-          className="absolute inset-y-0 right-0 flex items-center px-3 text-slate-500 hover:text-slate-800 rounded-r-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-campus-primary focus-visible:ring-offset-0"
+          className={`absolute inset-y-0 right-0 flex items-center rounded-r-lg px-2.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset ${toggleClass}`}
           aria-label={visible ? 'Hide password' : 'Show password'}
           aria-pressed={visible}
         >

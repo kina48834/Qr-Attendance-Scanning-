@@ -15,7 +15,7 @@ import {
   removeEvent,
   removeUser,
 } from '@/supabase/dataService';
-import { authSignUp, authSignOut, SUPABASE_AUTH_PASSWORD_MARKER } from '@/supabase/authFlow';
+import { authSignUp, authSignOut, normalizeAuthEmail, SUPABASE_AUTH_PASSWORD_MARKER } from '@/supabase/authFlow';
 
 export interface AddUserPayload {
   email: string;
@@ -143,11 +143,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   const addUser = useCallback(
     async (payload: AddUserPayload): Promise<User> => {
-      if (users.some((u) => u.email.toLowerCase() === payload.email.toLowerCase())) {
+      if (users.some((u) => u.email.toLowerCase() === normalizeAuthEmail(payload.email))) {
         throw new Error('A user with this email already exists.');
       }
       const newUser = await insertUser({
         ...payload,
+        email: normalizeAuthEmail(payload.email),
         ...(payload.role === 'teacher' && { approvalStatus: 'approved' as const }),
       });
       setUsers((prev) => [...prev, newUser]);
@@ -161,10 +162,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
       if (payload.role !== 'student' && payload.role !== 'teacher') {
         throw new Error('Invalid registration role.');
       }
-      if (users.some((u) => u.email.toLowerCase() === payload.email.toLowerCase())) {
+      const emailNorm = normalizeAuthEmail(payload.email);
+      if (users.some((u) => u.email.toLowerCase() === emailNorm)) {
         throw new Error('A user with this email already exists.');
       }
-      const { data: authData, error: authError } = await authSignUp(payload.email.trim(), payload.password, {
+      const passwordTrimmed = payload.password.trim();
+      const { data: authData, error: authError } = await authSignUp(emailNorm, passwordTrimmed, {
         name: payload.name.trim(),
         role: payload.role,
         ...(payload.role === 'teacher' && {
@@ -178,14 +181,14 @@ export function DataProvider({ children }: { children: ReactNode }) {
       const uid = authData.user?.id;
       if (!uid) {
         throw new Error(
-          'Could not finish signup. If Supabase requires email confirmation, confirm your email then sign in — or disable confirmation under Authentication → Providers → Email.'
+          'Supabase did not return a new user id. In Dashboard → Authentication → Providers → Email: turn off "Confirm email" for local testing, or confirm your inbox and then sign in. Also ensure this email is not already registered under Authentication → Users.'
         );
       }
       let newUser: User;
       try {
         newUser = await insertUser(
           {
-            email: payload.email.trim(),
+            email: emailNorm,
             name: payload.name.trim(),
             role: payload.role,
             password: SUPABASE_AUTH_PASSWORD_MARKER,

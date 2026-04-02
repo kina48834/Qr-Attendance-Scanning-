@@ -18,7 +18,7 @@ export function StudentEvents() {
   const isStarted = (e: (typeof events)[0]) => e.status === 'published' || e.status === 'completed';
 
   return (
-    <div className="space-y-6 w-full min-w-0">
+    <div className="space-y-5 w-full min-w-0">
       <PageHeader
         title="Events"
         description="Browse campus events. Scan the event QR once it has started to record attendance."
@@ -26,7 +26,18 @@ export function StudentEvents() {
       />
 
       {allEvents.length > 0 && (
-        <EventListSearchBar id="student-events-search" value={search} onChange={setSearch} className="max-w-xl" />
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <EventListSearchBar
+            id="student-events-search"
+            value={search}
+            onChange={setSearch}
+            size="compact"
+            className="sm:max-w-sm"
+          />
+          <p className="text-xs text-slate-500 tabular-nums">
+            {visibleEvents.length} of {allEvents.length} event{allEvents.length === 1 ? '' : 's'}
+          </p>
+        </div>
       )}
 
       <div className="grid gap-4">

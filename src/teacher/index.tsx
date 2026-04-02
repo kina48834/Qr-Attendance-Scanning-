@@ -7,6 +7,7 @@ import { TeacherEvents } from './TeacherEvents';
 import { TeacherEventForm } from './TeacherEventForm';
 import { TeacherUsers } from './TeacherUsers';
 import { TeacherAnalytics } from './TeacherAnalytics';
+import { TeacherEventAttendancePage } from '@/components/EventAttendanceRoster';
 
 export function TeacherRoutes() {
   const { user, isAuthenticated, logout } = useAuth();
@@ -45,6 +46,7 @@ export function TeacherRoutes() {
         <Route path="events" element={<TeacherEvents />} />
         <Route path="events/new" element={<TeacherEventForm />} />
         <Route path="events/edit/:eventId" element={<TeacherEventForm />} />
+        <Route path="events/:eventId/attendance" element={<TeacherEventAttendancePage />} />
         <Route path="users" element={<TeacherUsers />} />
         <Route path="analytics" element={<TeacherAnalytics />} />
         <Route path="*" element={<Navigate to="/teacher" replace />} />

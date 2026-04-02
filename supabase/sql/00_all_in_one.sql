@@ -1,8 +1,20 @@
 -- =========================================================
 -- Campus Connect - Supabase Full Setup (all-in-one)
 -- =========================================================
+-- Mirrors the numbered scripts in this folder. When you change any of:
+--   01_extensions.sql  02_types.sql  03_tables.sql  04_indexes.sql
+--   05_rls.sql  06_seed.sql  07_constraints.sql  08_triggers.sql
+--   09_comments.sql  10_auth_public_users_alignment.sql  11_api_grants.sql
+--   12_verify_demo_users.sql  13_repair_demo_login_users.sql
+-- update this file to match (or re-paste sections).
+--
+-- Order in this file: 01 → 02 → 03 → 04 → 07 → 08 → 09 → 05 → 11 → 06 → 10 → 12.
+-- Script 13 is appended only as a commented block (run separately to repair existing DBs).
 
+-- --- 01_extensions.sql ---
 create extension if not exists pgcrypto;
+
+-- --- 02_types.sql ---
 
 do $$
 begin
@@ -16,6 +28,9 @@ begin
     create type event_status as enum ('draft', 'published', 'completed', 'cancelled');
   end if;
 end $$;
+
+-- --- 03_tables.sql ---
+-- Core tables — columns mirror src/types/index.ts and src/supabase/dataService.ts
 
 create table if not exists public.users (
   id text primary key,
@@ -89,6 +104,9 @@ create table if not exists public.event_registrations (
   constraint uq_event_registrations_event_user unique (event_id, user_id)
 );
 
+-- --- 04_indexes.sql ---
+-- Performance indexes (same as 04_indexes.sql)
+
 create index if not exists idx_users_email on public.users(email);
 create index if not exists idx_users_role on public.users(role);
 create index if not exists idx_events_status on public.events(status);
@@ -100,7 +118,9 @@ create index if not exists idx_attendance_scanned_at on public.attendance(scanne
 create index if not exists idx_event_registrations_event_id on public.event_registrations(event_id);
 create index if not exists idx_event_registrations_user_id on public.event_registrations(user_id);
 
--- --- 07_constraints.sql (data fixes + app business rules) ---
+-- --- 07_constraints.sql ---
+-- Business rules aligned with the React app; prerequisite data fixes (safe to re-run).
+
 create or replace function public.generate_public_user_id()
 returns bigint
 language plpgsql
@@ -136,6 +156,7 @@ end $$;
 alter table public.users alter column public_id set not null;
 alter table public.users alter column public_id set default public.generate_public_user_id();
 
+-- Data fixes (before ADD CONSTRAINT on live DBs with legacy rows)
 update public.events
 set end_date = start_date
 where end_date < start_date;
@@ -160,6 +181,7 @@ where role = 'teacher'::user_role
     or btrim(employee_id) = ''
   );
 
+-- Constraints
 alter table public.events drop constraint if exists chk_events_end_after_start;
 alter table public.events
   add constraint chk_events_end_after_start check (end_date >= start_date);
@@ -185,6 +207,8 @@ alter table public.users
   );
 
 -- --- 08_triggers.sql ---
+-- Keep events.updated_at in sync on every row update.
+
 create or replace function public.set_updated_at()
 returns trigger
 language plpgsql
@@ -201,7 +225,10 @@ create trigger trg_events_set_updated_at
   for each row
   execute function public.set_updated_at();
 
--- --- 09_comments.sql (ensure constraint names, then optional documentation) ---
+-- --- 09_comments.sql ---
+-- In-database documentation (see also supabase/sql/README.md).
+-- Older DBs may have default unique constraint names; normalize before COMMENT ON CONSTRAINT.
+
 do $$
 declare
   old_name text;
@@ -298,6 +325,9 @@ comment on table public.event_registrations is
 comment on constraint uq_event_registrations_event_user on public.event_registrations is
   'One registration per user per event; insertRegistration upserts on (event_id, user_id).';
 
+-- --- 05_rls.sql ---
+-- Row Level Security (open policies for client-side app)
+
 alter table public.users enable row level security;
 alter table public.events enable row level security;
 alter table public.attendance enable row level security;
@@ -312,24 +342,43 @@ create policy "attendance_all_access" on public.attendance for all using (true) 
 drop policy if exists "registrations_all_access" on public.event_registrations;
 create policy "registrations_all_access" on public.event_registrations for all using (true) with check (true);
 
+-- --- 11_api_grants.sql ---
+-- PostgREST: anon + authenticated must reach public tables for the browser app.
+
+grant usage on schema public to anon, authenticated;
+grant select, insert, update, delete on table public.users to anon, authenticated;
+grant select, insert, update, delete on table public.events to anon, authenticated;
+grant select, insert, update, delete on table public.attendance to anon, authenticated;
+grant select, insert, update, delete on table public.event_registrations to anon, authenticated;
+
+-- --- 06_seed.sql ---
+-- Seed data (teacher row must satisfy chk_users_teacher_staff_fields).
+-- Demo user ids (admin-1, …) are not Supabase Auth UUIDs; table-password login first (see 10).
+
 insert into public.users (id, public_id, email, name, role, approval_status, phone, department, employee_id, created_at, password)
 values
-  ('admin-1', 910245, 'admin@gmail.com', 'Admin', 'administrator', null, null, null, null, now(), 'admin123'),
-  ('org-1', 726184, 'organiser@gmail.com', 'Organiser', 'organiser', null, null, null, null, now(), 'organiser123'),
-  ('tea-1', 583907, 'teacher@gmail.com', 'Teacher', 'teacher', 'approved', '555-0100', 'General', 'TCH-001', now(), 'teacher123'),
-  ('stu-1', 442761, 'student@gmail.com', 'Student', 'student', null, null, null, null, now(), 'student123')
+  ('admin-1', 910245, 'admin@gmail.com', 'Admin', 'administrator', null, null, null, null, now(), 'admin1919'),
+  ('org-1', 726184, 'organiser@gmail.com', 'Organiser', 'organiser', null, null, null, null, now(), 'organiser1919'),
+  ('tea-1', 583907, 'teacher@gmail.com', 'Teacher', 'teacher', 'approved', '555-0100', 'General', 'TCH-001', now(), 'teacher1919'),
+  ('stu-1', 442761, 'student@gmail.com', 'Student', 'student', null, null, null, null, now(), 'student1919')
 on conflict (id) do nothing;
 
+-- Drop legacy multi-event demo rows (safe if ids never existed)
+delete from public.attendance where event_id in ('evt-2', 'evt-3', 'evt-4', 'evt-5', 'evt-6');
+delete from public.event_registrations where event_id in ('evt-2', 'evt-3', 'evt-4', 'evt-5', 'evt-6');
+delete from public.events where id in ('evt-2', 'evt-3', 'evt-4', 'evt-5', 'evt-6');
+
+-- Exactly one pre-created event (organiser-owned, published for QR attendance).
 insert into public.events
   (id, title, description, location, start_date, end_date, organiser_id, organiser_name, status, qr_code_data, max_attendees, created_at, updated_at)
 values
   (
     'evt-1',
-    'Welcome Week 2025',
-    'Annual welcome event for new students.',
+    'Welcome to Campus Connect',
+    'Your welcome event — already in the system when Campus Connect starts. Meet the team, learn how to browse events, and scan the venue QR here to practice attendance. Teachers and admins can open this event to see who checked in.',
     'Main Hall',
-    '2025-09-01T10:00:00Z',
-    '2025-09-01T14:00:00Z',
+    '2026-06-15T09:00:00Z',
+    '2026-06-15T13:00:00Z',
     'org-1',
     'Organiser',
     'published',
@@ -337,27 +386,76 @@ values
     500,
     now(),
     now()
-  ),
-  (
-    'evt-2',
-    'Career fair spring 2026',
-    'Meet employers and learn about internships and graduate roles.',
-    'Library atrium',
-    '2026-03-10T09:00:00Z',
-    '2026-03-10T17:00:00Z',
-    'org-1',
-    'Organiser',
-    'completed',
-    'EVT-evt-2',
-    200,
-    now(),
-    now()
   )
-on conflict (id) do nothing;
+on conflict (id) do update set
+  title = excluded.title,
+  description = excluded.description,
+  location = excluded.location,
+  start_date = excluded.start_date,
+  end_date = excluded.end_date,
+  organiser_id = excluded.organiser_id,
+  organiser_name = excluded.organiser_name,
+  status = excluded.status,
+  qr_code_data = excluded.qr_code_data,
+  max_attendees = excluded.max_attendees,
+  updated_at = now();
 
--- --- 10_auth_public_users_alignment.sql (note) ---
--- Seed public.users ids (admin-1, …) differ from Supabase Auth UUIDs. The app tries table
--- password login before Auth so demo accounts work even if stray Auth users exist. Registered
--- users use Auth + public.users.id = auth user id. Optional: remove duplicate Auth users for
--- demo emails in Dashboard → Authentication → Users.
+-- Sample attendance so demo roster is non-empty (student scanned event QR)
+insert into public.attendance (id, event_id, user_id, user_name, user_email, scanned_at, qr_code_data)
+values
+  ('att-seed-1', 'evt-1', 'stu-1', 'Student', 'student@gmail.com', now(), 'EVT-evt-1')
+on conflict (event_id, user_id) do nothing;
+
+-- --- 10_auth_public_users_alignment.sql ---
+-- Auth vs public.users (demo / production alignment)
+-- Seed rows in public.users use fixed ids (e.g. admin-1) and plain passwords in `password`.
+-- Supabase Authentication users have a UUID `id` in auth.users; your app profile row must use
+-- the SAME id in public.users for the Auth sign-in path (see Register flow).
+--
+-- If you create Authentication users for the same emails as seed accounts (admin@gmail.com, …)
+-- without a matching public.users row (same UUID), sign-in can fail with "no profile".
+-- The app tries the table password first for seed accounts, then Supabase Auth.
+--
+-- Login calls auth.signOut() only after a successful table-password match so a stale Auth session
+-- does not overwrite that session on the next auth state sync (see app AuthContext).
+--
+-- Run 11_api_grants.sql (or this all-in-one) if SELECT on public.users fails from the browser.
+--
+-- Optional cleanup (Dashboard is easiest): Authentication → Users → delete duplicate users for
+-- demo emails if you only want table-password login for those accounts.
+--
+-- No DDL below — safe to run as-is.
+
 select 1 as auth_public_users_alignment_note;
+
+-- --- 12_verify_demo_users.sql ---
+-- Confirm seeded rows exist (login reads public.users before Supabase Auth).
+
+select id, email, role, left(password, 3) || '…' as password_preview
+from public.users
+order by email;
+
+-- --- 13_repair_demo_login_users.sql (DO NOT run on a fresh paste of this script) ---
+-- Copy/run separately when an existing project has wrong email casing or old seed passwords.
+-- Uncomment the block below only for that repair, or execute 13_repair_demo_login_users.sql alone.
+--
+-- update public.users
+-- set
+--   email = lower(btrim(email)),
+--   password = case id
+--     when 'admin-1' then 'admin1919'
+--     when 'org-1' then 'organiser1919'
+--     when 'tea-1' then 'teacher1919'
+--     when 'stu-1' then 'student1919'
+--     else password
+--   end,
+--   approval_status = case id
+--     when 'tea-1' then 'approved'::teacher_approval_status
+--     else approval_status
+--   end
+-- where id in ('admin-1', 'org-1', 'tea-1', 'stu-1');
+--
+-- select id, email, role, approval_status, left(password, 3) || '…' as pwd_preview
+-- from public.users
+-- where id in ('admin-1', 'org-1', 'tea-1', 'stu-1')
+-- order by email;

@@ -64,7 +64,7 @@ export function OrganiserDashboard() {
               {recent.map((evt) => {
                 const count = getEventAttendance(evt.id).length;
                 return (
-                  <tr key={evt.id} className="border-t border-slate-100 hover:bg-teal-50/40 transition-colors">
+                  <tr key={evt.id} className="border-t border-slate-100 hover:bg-blue-50/50 transition-colors">
                     <td className="px-5 py-3 font-medium text-slate-900">{evt.title}</td>
                     <td className="px-5 py-3 text-slate-600 tabular-nums">{format(new Date(evt.startDate), 'MMM d, yyyy')}</td>
                     <td className="px-5 py-3 text-slate-600">{count} scanned</td>

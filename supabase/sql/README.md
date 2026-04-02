@@ -28,10 +28,22 @@ Run in this exact order:
 6. `08_triggers.sql` — `events.updated_at` auto-maintained on update
 7. `09_comments.sql` — renames legacy `UNIQUE` constraints to `uq_attendance_event_user` / `uq_event_registrations_event_user` if needed, then `COMMENT ON` for documentation
 8. `05_rls.sql` — RLS enabled + permissive policies (anon key app; tighten for production)
-9. `06_seed.sql` — demo users + sample events: `evt-1` (published), `evt-2` (completed); seed teacher includes `phone` so `chk_users_teacher_staff_fields` passes. The React app does not duplicate this seed in code — it only talks to Postgres via Supabase.
-10. `10_auth_public_users_alignment.sql` — optional note: seed `public.users` ids (`admin-1`, …) vs Supabase Auth UUIDs; login tries table password first. Safe to run (returns a single-row `select 1`).
+9. `11_api_grants.sql` — `GRANT` on `public.users` / `events` / `attendance` / `event_registrations` for `anon` + `authenticated` (fixes “cannot read users” if tables were created only via SQL)
+10. `06_seed.sql` — demo users + **one** pre-seeded **welcome** event (`evt-1`, *Welcome to Campus Connect*, organiser-owned, published) + sample attendance for the demo student; removes legacy `evt-2`…`evt-6` if present. Teacher includes `phone` so `chk_users_teacher_staff_fields` passes.
+11. `10_auth_public_users_alignment.sql` — note on seed ids vs Supabase Auth UUIDs; safe to run (`select 1`).
+12. `12_verify_demo_users.sql` — optional diagnostics: lists `public.users` with a short password preview.
+13. `13_repair_demo_login_users.sql` — **optional** one-off repair: normalizes demo emails, resets seed passwords to match `06_seed.sql`, ensures seed teacher is `approved`. Use if table-password login fails but rows exist.
 
-**Merged:** `00_all_in_one.sql` inlines the same order through `09`, then RLS, seed, and the alignment note from `10`.
+**Merged:** `00_all_in_one.sql` inlines **01–04**, **07–09**, **05** (RLS), **11** (grants), **06** (seed), **10** (auth note + `select 1`), **12** (verify `select`), and ends with **13** as a **commented** repair block (uncomment or run `13_repair_demo_login_users.sql` separately — do not run `13` on top of a fresh seed in the same pass).
+
+### Login / register troubleshooting
+
+- **Seeded table-password accounts**: Rows must exist in **`public.users`** (emails such as `admin@gmail.com`, …) — run `06_seed.sql` (or `00_all_in_one.sql`) in the Supabase SQL Editor. Passwords are set only in the database (not shown in the app). The app checks this table **before** Supabase Auth.
+- **Verify rows**: Run `12_verify_demo_users.sql` or `select id, email, role from public.users order by email;`. Expect `admin-1`, `org-1`, `tea-1`, `stu-1`. An empty table means the seed `INSERT` did not run.
+- **SIGNED_OUT vs demo login**: `signOut()` can emit `SIGNED_OUT` after table-password login. The app clears stored session on that event only when the user id looks like a Supabase Auth **UUID**; ids like `admin-1` are not cleared so demo login sticks.
+- **Stale Auth on load**: If localStorage has a demo profile but the browser still has another Supabase session, the app signs out of Supabase on load and keeps the demo profile.
+- **Table-password login still fails**: Run **`13_repair_demo_login_users.sql`** to fix email casing and reset the four seed passwords to match `06_seed.sql`, and ensure the seed teacher is `approved`. The app signs out of Supabase **only after** a successful table-password match (not at the start of the form), then applies your session so roles route correctly.
+- **New registrations**: Under **Authentication → Providers → Email**, disable **Confirm email** for local testing, or confirm the inbox before signing in. Profile rows use **`public.users.id` = Auth user UUID**; `email` is stored lowercase.
 
 ## Migrations from an older schema
 

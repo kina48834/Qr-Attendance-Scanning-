@@ -45,7 +45,7 @@ export function AppLayout({ children, navItems }: AppLayoutProps) {
   const closeMobileMenu = () => setMobileMenuOpen(false);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-teal-50/20 to-slate-100 text-slate-900 flex">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/25 to-slate-100 text-slate-900 flex">
       {/* Mobile menu backdrop */}
       <button
         type="button"

@@ -10,6 +10,7 @@ const AdminRoutes = lazy(() => import('@/admin').then((m) => ({ default: m.Admin
 const OrganiserRoutes = lazy(() => import('@/organiser').then((m) => ({ default: m.OrganiserRoutes })));
 const StudentRoutes = lazy(() => import('@/student').then((m) => ({ default: m.StudentRoutes })));
 const TeacherRoutes = lazy(() => import('@/teacher').then((m) => ({ default: m.TeacherRoutes })));
+const PublicAbout = lazy(() => import('@/pages/PublicAbout').then((m) => ({ default: m.PublicAbout })));
 
 function RouteLoader() {
   return (
@@ -29,6 +30,7 @@ function App() {
               <Route path="/login" element={<Login />} />
               <Route path="/register" element={<Register />} />
               <Route path="/" element={<Home />} />
+              <Route path="/about" element={<PublicAbout />} />
               <Route path="/admin/*" element={<AdminRoutes />} />
               <Route path="/organiser/*" element={<OrganiserRoutes />} />
               <Route path="/student/*" element={<StudentRoutes />} />

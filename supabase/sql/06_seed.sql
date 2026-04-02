@@ -2,22 +2,28 @@
 -- Demo user ids (admin-1, …) are not Supabase Auth UUIDs; the app signs them in via public.users password first (see 10_auth_public_users_alignment.sql).
 insert into public.users (id, public_id, email, name, role, approval_status, phone, department, employee_id, created_at, password)
 values
-  ('admin-1', 910245, 'admin@gmail.com', 'Admin', 'administrator', null, null, null, null, now(), 'admin123'),
-  ('org-1', 726184, 'organiser@gmail.com', 'Organiser', 'organiser', null, null, null, null, now(), 'organiser123'),
-  ('tea-1', 583907, 'teacher@gmail.com', 'Teacher', 'teacher', 'approved', '555-0100', 'General', 'TCH-001', now(), 'teacher123'),
-  ('stu-1', 442761, 'student@gmail.com', 'Student', 'student', null, null, null, null, now(), 'student123')
+  ('admin-1', 910245, 'admin@gmail.com', 'Admin', 'administrator', null, null, null, null, now(), 'admin1919'),
+  ('org-1', 726184, 'organiser@gmail.com', 'Organiser', 'organiser', null, null, null, null, now(), 'organiser1919'),
+  ('tea-1', 583907, 'teacher@gmail.com', 'Teacher', 'teacher', 'approved', '555-0100', 'General', 'TCH-001', now(), 'teacher1919'),
+  ('stu-1', 442761, 'student@gmail.com', 'Student', 'student', null, null, null, null, now(), 'student1919')
 on conflict (id) do nothing;
 
+-- Drop legacy multi-event demo rows (safe if ids never existed)
+delete from public.attendance where event_id in ('evt-2', 'evt-3', 'evt-4', 'evt-5', 'evt-6');
+delete from public.event_registrations where event_id in ('evt-2', 'evt-3', 'evt-4', 'evt-5', 'evt-6');
+delete from public.events where id in ('evt-2', 'evt-3', 'evt-4', 'evt-5', 'evt-6');
+
+-- Exactly one pre-created event: the system welcome event (organiser-owned, published for QR attendance).
 insert into public.events
   (id, title, description, location, start_date, end_date, organiser_id, organiser_name, status, qr_code_data, max_attendees, created_at, updated_at)
 values
   (
     'evt-1',
-    'Welcome Week 2025',
-    'Annual welcome event for new students.',
+    'Welcome to Campus Connect',
+    'Your welcome event — already in the system when Campus Connect starts. Meet the team, learn how to browse events, and scan the venue QR here to practice attendance. Teachers and admins can open this event to see who checked in.',
     'Main Hall',
-    '2025-09-01T10:00:00Z',
-    '2025-09-01T14:00:00Z',
+    '2026-06-15T09:00:00Z',
+    '2026-06-15T13:00:00Z',
     'org-1',
     'Organiser',
     'published',
@@ -25,20 +31,22 @@ values
     500,
     now(),
     now()
-  ),
-  (
-    'evt-2',
-    'Career fair spring 2026',
-    'Meet employers and learn about internships and graduate roles.',
-    'Library atrium',
-    '2026-03-10T09:00:00Z',
-    '2026-03-10T17:00:00Z',
-    'org-1',
-    'Organiser',
-    'completed',
-    'EVT-evt-2',
-    200,
-    now(),
-    now()
   )
-on conflict (id) do nothing;
+on conflict (id) do update set
+  title = excluded.title,
+  description = excluded.description,
+  location = excluded.location,
+  start_date = excluded.start_date,
+  end_date = excluded.end_date,
+  organiser_id = excluded.organiser_id,
+  organiser_name = excluded.organiser_name,
+  status = excluded.status,
+  qr_code_data = excluded.qr_code_data,
+  max_attendees = excluded.max_attendees,
+  updated_at = now();
+
+-- Sample attendance so demo roster is non-empty (student scanned event QR)
+insert into public.attendance (id, event_id, user_id, user_name, user_email, scanned_at, qr_code_data)
+values
+  ('att-seed-1', 'evt-1', 'stu-1', 'Student', 'student@gmail.com', now(), 'EVT-evt-1')
+on conflict (event_id, user_id) do nothing;

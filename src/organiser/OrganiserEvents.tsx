@@ -38,8 +38,8 @@ export function OrganiserEvents() {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+    <div className="space-y-5">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <PageHeader
           title="My events"
           description={
@@ -52,14 +52,25 @@ export function OrganiserEvents() {
         />
         <Link
           to="/organiser/events/new"
-          className="inline-flex shrink-0 items-center justify-center px-4 py-2.5 bg-campus-primary text-white rounded-xl font-medium hover:bg-campus-secondary shadow-sm transition-colors"
+          className="inline-flex shrink-0 items-center justify-center gap-2 px-5 py-2.5 bg-campus-primary text-white rounded-xl font-semibold text-sm hover:bg-campus-secondary shadow-md shadow-blue-500/15 transition-colors"
         >
           New event
         </Link>
       </div>
 
       {myEvents.length > 0 && (
-        <EventListSearchBar id="organiser-events-search" value={search} onChange={setSearch} className="max-w-xl" />
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <EventListSearchBar
+            id="organiser-events-search"
+            value={search}
+            onChange={setSearch}
+            size="compact"
+            className="sm:max-w-sm"
+          />
+          <p className="text-xs text-slate-500 tabular-nums">
+            {visibleEvents.length} of {myEvents.length} event{myEvents.length === 1 ? '' : 's'}
+          </p>
+        </div>
       )}
 
       <div className="grid gap-4">

@@ -136,6 +136,20 @@ export async function fetchEvents(): Promise<Event[]> {
   return (data as EventRow[]).map(toEvent);
 }
 
+/** Published events that have not ended yet, for the public landing page (anon Supabase client). */
+export async function fetchPublicUpcomingEvents(limit = 8): Promise<Event[]> {
+  const now = new Date().toISOString();
+  const { data, error } = await supabase
+    .from('events')
+    .select('*')
+    .eq('status', 'published')
+    .gte('end_date', now)
+    .order('start_date', { ascending: true })
+    .limit(limit);
+  if (error) throw error;
+  return (data as EventRow[]).map(toEvent);
+}
+
 export async function fetchAttendance(): Promise<AttendanceRecord[]> {
   const { data, error } = await supabase.from('attendance').select('*').order('scanned_at', { ascending: true });
   if (error) throw error;
@@ -155,16 +169,42 @@ export async function fetchUserById(id: string): Promise<User | null> {
   return toUser(data as UserRow);
 }
 
-/** Legacy table-password login: load the profile row directly from Postgres (tries exact email then lowercase). */
+/** Escape %, _, \\ for PostgREST ilike (case-insensitive email match). */
+function escapeIlikeExact(value: string): string {
+  return value.replace(/\\/g, '\\\\').replace(/%/g, '\\%').replace(/_/g, '\\_');
+}
+
+/** Legacy table-password login: load profile by email (indexed eq first, then ilike for mixed-case rows). */
 export async function fetchUserByEmailForLegacyLogin(emailInput: string): Promise<User | null> {
   const trimmed = emailInput.trim();
   if (!trimmed) return null;
-  const candidates = Array.from(new Set([trimmed, trimmed.toLowerCase()]));
-  for (const email of candidates) {
-    const { data, error } = await supabase.from('users').select('*').eq('email', email).maybeSingle();
-    if (error) throw error;
-    if (data) return toUser(data as UserRow);
+  const lower = trimmed.toLowerCase();
+
+  const { data: byLower, error: errLower } = await supabase
+    .from('users')
+    .select('*')
+    .eq('email', lower)
+    .maybeSingle();
+  if (errLower) throw errLower;
+  if (byLower) return toUser(byLower as UserRow);
+
+  if (trimmed !== lower) {
+    const { data: byExact, error: errExact } = await supabase
+      .from('users')
+      .select('*')
+      .eq('email', trimmed)
+      .maybeSingle();
+    if (errExact) throw errExact;
+    if (byExact) return toUser(byExact as UserRow);
   }
+
+  const { data: byIlike, error: errIlike } = await supabase
+    .from('users')
+    .select('*')
+    .ilike('email', escapeIlikeExact(trimmed))
+    .maybeSingle();
+  if (errIlike) throw errIlike;
+  if (byIlike) return toUser(byIlike as UserRow);
   return null;
 }
 
@@ -184,7 +224,7 @@ export async function insertUser(
 ): Promise<User> {
   const row = {
     id: options?.id ?? makeId('user'),
-    email: payload.email.trim(),
+    email: payload.email.trim().toLowerCase(),
     name: payload.name.trim(),
     role: payload.role,
     password: payload.password,
@@ -203,7 +243,7 @@ export async function insertUser(
 export async function patchUser(id: string, updates: Partial<User>): Promise<User> {
   const payload: Record<string, unknown> = {};
   if (updates.name !== undefined) payload.name = updates.name.trim();
-  if (updates.email !== undefined) payload.email = updates.email.trim();
+  if (updates.email !== undefined) payload.email = updates.email.trim().toLowerCase();
   if (updates.role !== undefined) payload.role = updates.role;
   if (updates.password !== undefined) payload.password = updates.password;
   if (updates.phone !== undefined) payload.phone = updates.phone || null;

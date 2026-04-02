@@ -6,11 +6,16 @@
 --
 -- If you create Authentication users for the same emails as seed accounts (admin@gmail.com, …)
 -- without a matching public.users row (same UUID), sign-in used to fail with "no profile".
--- The app now tries the table password first for seed accounts, then Supabase Auth.
+-- The app tries the table password first for seed accounts, then Supabase Auth.
+--
+-- After a successful table-password login, the app signs out of Supabase so a stale Auth session
+-- does not overwrite that session on the next auth state sync (see AuthContext / Login.tsx).
+--
+-- Run 11_api_grants.sql (or 00_all_in_one.sql) if SELECT on public.users fails from the browser.
 --
 -- Optional cleanup (Dashboard is easiest): Authentication → Users → delete duplicate users for
 -- demo emails if you only want table-password login for those accounts.
 --
--- No DDL below — safe to run as-is (empty transaction).
+-- No DDL below — safe to run as-is.
 
 select 1 as auth_public_users_alignment_note;

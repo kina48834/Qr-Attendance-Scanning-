@@ -6,6 +6,8 @@ type BrandLogoProps = {
   size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl';
   /** Show “Campus Connect” next to the mark */
   showTitle?: boolean;
+  /** Optional tagline under the title (e.g. landing header) */
+  subtitle?: string;
   to?: string;
   onClick?: () => void;
   /** Light text on dark sidebar */
@@ -27,6 +29,7 @@ const sizeClasses = {
 export function BrandLogo({
   size = 'md',
   showTitle = true,
+  subtitle,
   to = '/',
   onClick,
   variant = 'dark',
@@ -53,8 +56,19 @@ export function BrandLogo({
         decoding="async"
       />
       {showTitle && (
-        <span className={`truncate max-w-full leading-tight ${titleAlign} ${titleColor} ${titleClassName}`}>
-          Campus Connect
+        <span className={`flex flex-col gap-0.5 min-w-0 ${titleAlign}`}>
+          <span className={`truncate max-w-full leading-tight ${titleColor} ${titleClassName}`}>
+            Campus Connect
+          </span>
+          {subtitle ? (
+            <span
+              className={`text-[11px] sm:text-xs font-medium tracking-wide ${
+                variant === 'light' ? 'text-sky-200/90' : 'text-slate-500'
+              }`}
+            >
+              {subtitle}
+            </span>
+          ) : null}
         </span>
       )}
     </>

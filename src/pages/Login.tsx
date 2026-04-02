@@ -1,8 +1,21 @@
 import { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { Info, LogIn } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
-import { BrandLogo } from '@/components/BrandLogo';
 import { PasswordField } from '@/components/PasswordField';
+import { AuthPageLayout } from '@/components/auth/AuthPageLayout';
+import { LandingAuthFormCard } from '@/components/auth/LandingAuthFormCard';
+import {
+  landingAuthPrimaryButtonClass,
+  landingAuthInputClass,
+  landingAuthLabelClass,
+  landingAuthEyebrowClass,
+  landingAuthLinkClass,
+  landingAuthMutedLinkClass,
+  landingAlertInfo,
+  landingAlertWarn,
+  landingAlertError,
+} from '@/components/auth/authClasses';
 import { teacherSignInBlockMessage } from '@/utils/userApproval';
 import { authSignIn, authSignOut, SUPABASE_AUTH_PASSWORD_MARKER } from '@/supabase/authFlow';
 import { fetchUserById, fetchUserByEmailForLegacyLogin } from '@/supabase/dataService';
@@ -33,35 +46,44 @@ export function Login() {
     e.preventDefault();
     setError('');
     const emailTrim = email.trim();
+    const passwordTrimmed = password.trim();
 
     let tableUser: Awaited<ReturnType<typeof fetchUserByEmailForLegacyLogin>>;
     try {
       tableUser = await fetchUserByEmailForLegacyLogin(emailTrim);
-    } catch {
-      setError('Could not reach the database. Check your connection and Supabase settings.');
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setError(
+        `Cannot read accounts from the database (${msg}). Confirm VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY, run supabase/sql (RLS + seed), and redeploy.`
+      );
       return;
     }
 
-    // 1) Seed / legacy: password in public.users (ids like admin-1). Run before Auth so demo
-    //    works on Vercel even if Authentication has a same-email user with a different UUID.
     if (
       tableUser &&
       tableUser.password !== SUPABASE_AUTH_PASSWORD_MARKER &&
-      tableUser.password === password
+      tableUser.password === passwordTrimmed
     ) {
       const block = teacherSignInBlockMessage(tableUser);
       if (block) {
         setError(block);
         return;
       }
+      try {
+        await authSignOut();
+      } catch {
+        /* ignore */
+      }
+      await new Promise<void>((resolve) => {
+        setTimeout(resolve, 0);
+      });
       const { password: _, ...sessionUser } = tableUser;
       setUser({ ...sessionUser });
       navigateAfterLogin(tableUser.role, navigate);
       return;
     }
 
-    // 2) Supabase Auth + profile where public.users.id = auth user id (registered flows)
-    const { data: signData, error: signErr } = await authSignIn(emailTrim, password);
+    const { data: signData, error: signErr } = await authSignIn(emailTrim, passwordTrimmed);
     if (!signErr && signData.user) {
       const profile = await fetchUserById(signData.user.id);
       if (!profile) {
@@ -83,11 +105,10 @@ export function Login() {
       return;
     }
 
-    // 3) Remaining errors
     if (tableUser?.password === SUPABASE_AUTH_PASSWORD_MARKER) {
       setError(
         signErr?.message ??
-          'This email is registered with Supabase Auth. Use the password you chose at registration (not the demo table passwords).'
+          'This email uses Supabase Auth. Sign in with the password you chose at registration.'
       );
       return;
     }
@@ -99,62 +120,55 @@ export function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-campus-dark to-campus-primary flex items-center justify-center p-4">
-      <div className="w-full max-w-md bg-white rounded-2xl shadow-xl p-6 sm:p-8">
-        <div className="flex flex-col items-center text-center mb-8 gap-3">
-          <BrandLogo layout="column" size="xl" variant="dark" to="/" />
-          <p className="text-slate-600 text-sm sm:text-base">School Event Management System</p>
-        </div>
-        <div className="mb-5 p-3.5 rounded-xl bg-slate-50 border border-slate-200 text-left text-sm text-slate-700">
-          <p className="font-medium text-slate-800 mb-2">Signing in</p>
-          <ul className="space-y-2 list-disc list-inside text-slate-600 leading-relaxed">
-            <li>
-              <span className="font-medium text-slate-700">Demo accounts</span> — passwords live in{' '}
-              <code className="text-slate-800">public.users</code> (SQL seed). Sign-in uses those first.
-            </li>
-            <li>
-              <span className="font-medium text-slate-700">Students</span> — after{' '}
-              <Link to="/register" className="text-campus-primary font-medium hover:underline">registration</Link>
-              , use the email and password you set (Supabase Auth + matching profile row).
-            </li>
-            <li>
-              <span className="font-medium text-slate-700">Teachers</span> — same as registration; new teachers need approval in User Management before sign-in.
-            </li>
-          </ul>
-        </div>
-        <form onSubmit={handleSubmit} className="space-y-4">
+    <AuthPageLayout authMode="login">
+      <LandingAuthFormCard icon={LogIn}>
+        <p className={landingAuthEyebrowClass}>Andres Soriano Colleges of Bislig</p>
+        <h1 className="mt-1 text-xl font-bold tracking-tight text-white sm:text-2xl">Sign in</h1>
+        <p className="mt-1 text-xs text-white/65 sm:text-sm">Campus Connect — events, QR attendance, and analytics.</p>
+
+        <form onSubmit={handleSubmit} className="relative z-[1] mt-5 space-y-3">
           {teacherPendingNotice && (
-            <div className="px-3 py-2 rounded-lg bg-teal-50 text-teal-900 text-sm border border-teal-200">
-              Registration received. Your teacher account is pending approval. An administrator will review it in User Management—you can sign in after it is approved.
+            <div className={landingAlertInfo}>
+              <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-sky-200" aria-hidden />
+              <span>Teacher registration pending — sign in after approval.</span>
             </div>
           )}
           {teacherAccountNotice === 'pending' && (
-            <div className="px-3 py-2 rounded-lg bg-amber-50 text-amber-900 text-sm border border-amber-200">
-              You cannot use the teacher area until your account is approved. Please wait for an administrator or sign in with an approved account.
+            <div className={landingAlertWarn}>
+              <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-200" aria-hidden />
+              <span>Teacher area locked until your account is approved.</span>
             </div>
           )}
           {teacherAccountNotice === 'rejected' && (
-            <div className="px-3 py-2 rounded-lg bg-red-50 text-red-800 text-sm border border-red-200">
-              Your teacher registration was not approved. Contact administration if you need help.
+            <div className={landingAlertError}>
+              <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-red-200" aria-hidden />
+              <span>Teacher registration was not approved. Contact administration.</span>
             </div>
           )}
           {error && (
-            <div className="px-3 py-2 rounded-lg bg-red-50 text-red-700 text-sm">
-              {error}
+            <div className={landingAlertError}>
+              <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-red-200" aria-hidden />
+              <span>{error}</span>
             </div>
           )}
+
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Email</label>
+            <label htmlFor="login-email" className={landingAuthLabelClass}>
+              Email
+            </label>
             <input
+              id="login-email"
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
-              className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-campus-primary focus:border-campus-primary"
+              className={landingAuthInputClass}
               placeholder="you@gmail.com"
+              autoComplete="email"
             />
           </div>
           <PasswordField
+            theme="landing"
             label="Password"
             value={password}
             onChange={setPassword}
@@ -163,33 +177,28 @@ export function Login() {
             autoComplete="current-password"
             id="login-password"
           />
-          <button
-            type="submit"
-            className="w-full py-2.5 bg-campus-primary text-white font-medium rounded-lg hover:bg-campus-secondary transition-colors"
-          >
+          <button type="submit" className={landingAuthPrimaryButtonClass}>
+            <LogIn className="h-4 w-4" aria-hidden />
             Sign in
           </button>
         </form>
-        <div className="mt-6 p-4 rounded-xl bg-slate-50 border border-slate-200">
-          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Demo seed accounts (login)</p>
-          <p className="text-xs text-slate-600 mb-2 leading-relaxed">
-            Rows in <code className="text-slate-800">public.users</code> from <code className="text-slate-800">06_seed.sql</code>. They are not required in Authentication; the app checks this table password before Auth.
+
+        <div className="relative z-[1] mt-5 space-y-2 text-center text-xs text-white/65 sm:text-sm">
+          <p>
+            New here?{' '}
+            <Link to="/register" className={landingAuthLinkClass}>
+              Create an account
+            </Link>
+            <span className="mx-1 text-white/25">·</span>
+            <Link to="/about" className={landingAuthLinkClass}>
+              About
+            </Link>
           </p>
-          <ul className="text-sm text-slate-700 space-y-1.5">
-            <li><strong>Admin:</strong> admin@gmail.com / admin123</li>
-            <li><strong>Organiser:</strong> organiser@gmail.com / organiser123</li>
-            <li><strong>Teacher:</strong> teacher@gmail.com / teacher123</li>
-            <li><strong>Student:</strong> student@gmail.com / student123</li>
-          </ul>
+          <Link to="/" className={`inline-flex items-center gap-1 text-xs ${landingAuthMutedLinkClass}`}>
+            ← Back to home
+          </Link>
         </div>
-        <p className="text-center mt-4 text-sm text-slate-600">
-          New student or teacher?{' '}
-          <Link to="/register" className="text-campus-primary font-medium hover:underline">Create an account</Link>
-        </p>
-        <p className="text-center mt-2">
-          <Link to="/" className="text-sm text-campus-primary hover:underline">← Back to home</Link>
-        </p>
-      </div>
-    </div>
+      </LandingAuthFormCard>
+    </AuthPageLayout>
   );
 }

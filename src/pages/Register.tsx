@@ -1,9 +1,22 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { ChevronDown, GraduationCap, Info, School, UserPlus } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useData } from '@/context/DataContext';
-import { BrandLogo } from '@/components/BrandLogo';
 import { PasswordField } from '@/components/PasswordField';
+import { AuthPageLayout } from '@/components/auth/AuthPageLayout';
+import { LandingAuthFormCard } from '@/components/auth/LandingAuthFormCard';
+import {
+  landingAuthPrimaryButtonClass,
+  landingAuthInputClass,
+  landingAuthLabelClass,
+  landingAuthEyebrowClass,
+  landingAuthLinkClass,
+  landingAuthMutedLinkClass,
+  landingAuthDetailsShell,
+  landingAlertWarn,
+  landingAlertError,
+} from '@/components/auth/authClasses';
 import { authSignOut } from '@/supabase/authFlow';
 
 export function Register() {
@@ -68,32 +81,45 @@ export function Register() {
     }
   };
 
+  const roleTile =
+    'relative flex cursor-pointer items-center justify-center gap-2 rounded-lg border-2 px-2 py-2 text-center text-sm font-semibold transition-all sm:py-2.5';
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-campus-dark to-campus-primary flex items-center justify-center p-4">
-      <div className="w-full max-w-md bg-white rounded-2xl shadow-xl p-6 sm:p-8">
-        <div className="flex flex-col items-center text-center mb-8 gap-3">
-          <BrandLogo layout="column" size="xl" variant="dark" to="/" />
-          <div>
-            <h1 className="text-xl font-bold text-slate-900">Create an account</h1>
-            <p className="text-slate-600 mt-1 text-sm sm:text-base">
-              Register as a student or teacher to use the campus event system.
-            </p>
+    <AuthPageLayout authMode="register" tall>
+      <LandingAuthFormCard icon={UserPlus}>
+        <p className={landingAuthEyebrowClass}>Andres Soriano Colleges of Bislig</p>
+        <h1 className="mt-1 text-xl font-bold tracking-tight text-white sm:text-2xl">Create an account</h1>
+        <p className="mt-1 text-xs text-white/65 sm:text-sm">Student or teacher — campus events &amp; QR attendance.</p>
+
+        <details className={`${landingAuthDetailsShell} group mt-3`}>
+          <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-3 py-2 text-sm font-semibold text-white hover:bg-white/[0.04]">
+            <span className="flex items-center gap-2">
+              <Info className="h-4 w-4 shrink-0 text-landing-sky" aria-hidden />
+              Before you register
+            </span>
+            <ChevronDown className="h-4 w-4 shrink-0 text-white/45 transition-transform group-open:rotate-180" aria-hidden />
+          </summary>
+          <div className="border-t border-white/10 px-3 pb-3 pt-2 text-[13px] leading-snug text-white/75">
+            Valid email required. Teachers are reviewed before sign-in; students can start immediately.
           </div>
-        </div>
-        <form onSubmit={handleSubmit} className="space-y-4">
+        </details>
+
+        <form onSubmit={handleSubmit} className="relative z-[1] mt-4 space-y-4">
           {error && (
-            <div className="px-3 py-2 rounded-lg bg-red-50 text-red-700 text-sm">
-              {error}
+            <div className={landingAlertError}>
+              <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-red-200" aria-hidden />
+              <span>{error}</span>
             </div>
           )}
+
           <div>
-            <span className="block text-sm font-medium text-slate-700 mb-2">I am registering as</span>
-            <div className="grid grid-cols-2 gap-2">
+            <span className={landingAuthLabelClass}>I am registering as</span>
+            <div className="mt-1.5 grid grid-cols-2 gap-2">
               <label
-                className={`flex items-center justify-center gap-2 cursor-pointer rounded-lg border-2 px-3 py-2.5 text-sm font-medium transition-colors ${
+                className={`${roleTile} ${
                   accountRole === 'student'
-                    ? 'border-campus-primary bg-teal-50 text-campus-primary'
-                    : 'border-slate-200 text-slate-700 hover:border-slate-300'
+                    ? 'border-landing-sky bg-landing-sky/15 text-white ring-1 ring-landing-sky/40'
+                    : 'border-white/15 bg-white/[0.04] text-white/90 hover:border-white/25'
                 }`}
               >
                 <input
@@ -104,13 +130,17 @@ export function Register() {
                   onChange={() => setAccountRole('student')}
                   className="sr-only"
                 />
+                <GraduationCap
+                  className={`h-4 w-4 shrink-0 ${accountRole === 'student' ? 'text-landing-sky' : 'text-white/45'}`}
+                  aria-hidden
+                />
                 Student
               </label>
               <label
-                className={`flex items-center justify-center gap-2 cursor-pointer rounded-lg border-2 px-3 py-2.5 text-sm font-medium transition-colors ${
+                className={`${roleTile} ${
                   accountRole === 'teacher'
-                    ? 'border-campus-primary bg-teal-50 text-campus-primary'
-                    : 'border-slate-200 text-slate-700 hover:border-slate-300'
+                    ? 'border-landing-sky bg-landing-sky/15 text-white ring-1 ring-landing-sky/40'
+                    : 'border-white/15 bg-white/[0.04] text-white/90 hover:border-white/25'
                 }`}
               >
                 <input
@@ -121,121 +151,169 @@ export function Register() {
                   onChange={() => setAccountRole('teacher')}
                   className="sr-only"
                 />
+                <School
+                  className={`h-4 w-4 shrink-0 ${accountRole === 'teacher' ? 'text-landing-sky' : 'text-white/45'}`}
+                  aria-hidden
+                />
                 Teacher
               </label>
             </div>
-            <p className="text-xs text-slate-500 mt-1.5">
-              Students browse events and scan QR for attendance. Teachers manage events and analytics for their classes.
-            </p>
+            <p className="mt-1.5 text-[11px] text-white/50">Teachers need admin approval before first sign-in.</p>
             {accountRole === 'teacher' && (
-              <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-2 mt-2">
-                Teacher accounts require administrator approval. You will not be able to sign in until your account is approved in User Management.
-              </p>
+              <div className={`${landingAlertWarn} mt-2`}>
+                <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-200" aria-hidden />
+                <span>
+                  Account stays <strong>pending</strong> until approved in User Management.
+                </span>
+              </div>
             )}
           </div>
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Name</label>
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              required
-              className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-campus-primary focus:border-campus-primary"
-              placeholder="Your name"
-            />
+
+          <div className="space-y-3 border-t border-white/10 pt-3">
+            <p className="text-xs font-semibold uppercase tracking-wide text-white/55">Your details</p>
+            <div>
+              <label htmlFor="register-name" className={landingAuthLabelClass}>
+                Full name
+              </label>
+              <input
+                id="register-name"
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                required
+                className={landingAuthInputClass}
+                placeholder="Your full name"
+                autoComplete="name"
+              />
+            </div>
+            <div>
+              <label htmlFor="register-email" className={landingAuthLabelClass}>
+                Email
+              </label>
+              <input
+                id="register-email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                className={landingAuthInputClass}
+                placeholder="you@gmail.com"
+                autoComplete="email"
+              />
+            </div>
           </div>
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Email</label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-campus-primary focus:border-campus-primary"
-              placeholder="you@gmail.com"
-            />
-          </div>
+
           {accountRole === 'teacher' && (
-            <div className="space-y-3 pt-1 border-t border-slate-100">
-              <p className="text-sm font-medium text-slate-800">Teacher / staff details</p>
+            <div className="space-y-3 rounded-lg border border-white/10 bg-white/[0.05] p-3">
+              <p className="flex items-center gap-2 text-xs font-semibold text-white">
+                <School className="h-3.5 w-3.5 text-landing-sky" aria-hidden />
+                Teacher / staff
+              </p>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Phone</label>
+                <label htmlFor="register-phone" className={landingAuthLabelClass}>
+                  Phone
+                </label>
                 <input
+                  id="register-phone"
                   type="tel"
                   value={teacherPhone}
                   onChange={(e) => setTeacherPhone(e.target.value)}
                   required={accountRole === 'teacher'}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-campus-primary focus:border-campus-primary"
+                  className={landingAuthInputClass}
                   placeholder="Contact number"
+                  autoComplete="tel"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Department</label>
+                <label htmlFor="register-dept" className={landingAuthLabelClass}>
+                  Department
+                </label>
                 <input
+                  id="register-dept"
                   type="text"
                   value={teacherDepartment}
                   onChange={(e) => setTeacherDepartment(e.target.value)}
                   required={accountRole === 'teacher'}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-campus-primary focus:border-campus-primary"
+                  className={landingAuthInputClass}
                   placeholder="e.g. Mathematics"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Employee / staff ID</label>
+                <label htmlFor="register-empid" className={landingAuthLabelClass}>
+                  Employee / staff ID
+                </label>
                 <input
+                  id="register-empid"
                   type="text"
                   value={teacherEmployeeId}
                   onChange={(e) => setTeacherEmployeeId(e.target.value)}
                   required={accountRole === 'teacher'}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-campus-primary focus:border-campus-primary"
+                  className={landingAuthInputClass}
                   placeholder="School-issued ID"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Office / room (optional)</label>
+                <label htmlFor="register-office" className={landingAuthLabelClass}>
+                  Office / room <span className="font-normal text-white/45">(optional)</span>
+                </label>
                 <input
+                  id="register-office"
                   type="text"
                   value={teacherOffice}
                   onChange={(e) => setTeacherOffice(e.target.value)}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-campus-primary focus:border-campus-primary"
+                  className={landingAuthInputClass}
                   placeholder="Building and room"
                 />
               </div>
             </div>
           )}
-          <PasswordField
-            label="Password"
-            value={password}
-            onChange={setPassword}
-            required
-            minLength={6}
-            placeholder="At least 6 characters"
-            autoComplete="new-password"
-            id="register-password"
-          />
-          <PasswordField
-            label="Confirm password"
-            value={confirmPassword}
-            onChange={setConfirmPassword}
-            required
-            placeholder="••••••••"
-            autoComplete="new-password"
-            id="register-confirm-password"
-          />
-          <button
-            type="submit"
-            className="w-full py-2.5 bg-campus-primary text-white font-medium rounded-lg hover:bg-campus-secondary transition-colors"
-          >
-            Register
+
+          <div className="space-y-3 border-t border-white/10 pt-3">
+            <PasswordField
+              theme="landing"
+              label="Password"
+              value={password}
+              onChange={setPassword}
+              required
+              minLength={6}
+              placeholder="At least 6 characters"
+              autoComplete="new-password"
+              id="register-password"
+            />
+            <PasswordField
+              theme="landing"
+              label="Confirm password"
+              value={confirmPassword}
+              onChange={setConfirmPassword}
+              required
+              placeholder="••••••••"
+              autoComplete="new-password"
+              id="register-confirm-password"
+            />
+          </div>
+
+          <button type="submit" className={landingAuthPrimaryButtonClass}>
+            <UserPlus className="h-4 w-4" aria-hidden />
+            Create account
           </button>
         </form>
-        <p className="text-center mt-4 text-sm text-slate-600">
-          Already have an account? <Link to="/login" className="text-campus-primary font-medium hover:underline">Sign in</Link>
-        </p>
-        <p className="text-center mt-2">
-          <Link to="/" className="text-sm text-campus-primary hover:underline">← Back to home</Link>
-        </p>
-      </div>
-    </div>
+
+        <div className="relative z-[1] mt-4 space-y-2 text-center text-xs text-white/65 sm:text-sm">
+          <p>
+            Already have an account?{' '}
+            <Link to="/login" className={landingAuthLinkClass}>
+              Sign in
+            </Link>
+            <span className="mx-1 text-white/25">·</span>
+            <Link to="/about" className={landingAuthLinkClass}>
+              About
+            </Link>
+          </p>
+          <Link to="/" className={`inline-flex items-center gap-1 text-xs ${landingAuthMutedLinkClass}`}>
+            ← Back to home
+          </Link>
+        </div>
+      </LandingAuthFormCard>
+    </AuthPageLayout>
   );
 }
