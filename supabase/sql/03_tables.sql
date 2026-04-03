@@ -12,6 +12,9 @@ create table if not exists public.users (
   department text null,
   employee_id text null,
   office_location text null,
+  academic_track text null,
+  academic_year text null,
+  academic_program text null,
   created_at timestamptz not null default now(),
   password text not null
 );

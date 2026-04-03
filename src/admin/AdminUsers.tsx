@@ -1,9 +1,18 @@
 import { useMemo, useState } from 'react';
 import { useData } from '@/context/DataContext';
 import { useAuth } from '@/context/AuthContext';
-import type { UserRole } from '@/types';
+import type { UserRole, User as AppUser, AcademicTrack } from '@/types';
 import type { AddUserPayload } from '@/context/DataContext';
-import { User, Mail, Plus, Pencil, Trash2, Building2, Phone, IdCard } from 'lucide-react';
+import { AcademicEnrollmentFields } from '@/components/AcademicEnrollmentFields';
+import {
+  emptyAcademicEnrollment,
+  userToAcademicEnrollment,
+  validateAcademicEnrollment,
+  formatAcademicDepartmentLine,
+} from '@/constants/academicEnrollment';
+import type { AcademicEnrollmentValue } from '@/constants/academicEnrollment';
+import { formatUserAcademicLine } from '@/utils/academicProfileDisplay';
+import { User as UserIcon, Mail, Plus, Pencil, Trash2, Building2, Phone, IdCard } from 'lucide-react';
 import { PageHeader, RoleBadge } from '@/components/PageHeader';
 import { EventListSearchBar } from '@/components/EventListSearchBar';
 
@@ -45,17 +54,7 @@ function approvalLabel(status: string | undefined) {
   return 'Rejected';
 }
 
-function filterUsersBySearch<
-  T extends {
-    name: string;
-    email: string;
-    role: UserRole;
-    approvalStatus?: string;
-    department?: string;
-    employeeId?: string;
-    phone?: string;
-  },
->(list: T[], query: string): T[] {
+function filterUsersBySearch(list: AppUser[], query: string): AppUser[] {
   const q = query.trim().toLowerCase();
   if (!q) return list;
   return list.filter((u) => {
@@ -70,9 +69,15 @@ function filterUsersBySearch<
       if (u.employeeId?.toLowerCase().includes(q)) return true;
       if (u.phone?.toLowerCase().includes(q)) return true;
     }
+    if (u.role === 'student') {
+      if (u.department?.toLowerCase().includes(q)) return true;
+      if (formatUserAcademicLine(u)?.toLowerCase().includes(q)) return true;
+    }
     return false;
   });
 }
+
+type AdminFormState = AddUserPayload & { id?: string; academic: AcademicEnrollmentValue };
 
 export function AdminUsers() {
   const { user: currentUser } = useAuth();
@@ -81,7 +86,7 @@ export function AdminUsers() {
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [error, setError] = useState('');
-  const [form, setForm] = useState<AddUserPayload & { id?: string }>({
+  const [form, setForm] = useState<AdminFormState>({
     email: '',
     name: '',
     role: 'student',
@@ -90,6 +95,7 @@ export function AdminUsers() {
     department: '',
     employeeId: '',
     officeLocation: '',
+    academic: emptyAcademicEnrollment(),
   });
 
   const sortedUsers = useMemo(
@@ -108,6 +114,7 @@ export function AdminUsers() {
       department: '',
       employeeId: '',
       officeLocation: '',
+      academic: emptyAcademicEnrollment(),
     });
     setShowForm(false);
     setEditingId(null);
@@ -121,9 +128,16 @@ export function AdminUsers() {
       setError('Password is required.');
       return;
     }
+    if (form.role === 'student' || form.role === 'teacher') {
+      const ae = validateAcademicEnrollment(form.academic);
+      if (ae) {
+        setError(ae);
+        return;
+      }
+    }
     if (form.role === 'teacher') {
-      if (!form.phone?.trim() || !form.department?.trim() || !form.employeeId?.trim()) {
-        setError('Teachers require phone, department, and employee/staff ID.');
+      if (!form.phone?.trim() || !form.employeeId?.trim()) {
+        setError('Teachers require phone and employee/staff ID.');
         return;
       }
     }
@@ -133,10 +147,16 @@ export function AdminUsers() {
         name: form.name,
         role: form.role,
         password: form.password,
-        phone: form.phone,
-        department: form.department,
-        employeeId: form.employeeId,
-        officeLocation: form.officeLocation,
+        phone: form.role === 'teacher' ? form.phone : undefined,
+        employeeId: form.role === 'teacher' ? form.employeeId : undefined,
+        officeLocation: form.role === 'teacher' ? form.officeLocation : undefined,
+        ...(form.role === 'student' || form.role === 'teacher'
+          ? {
+              academicTrack: form.academic.track as AcademicTrack,
+              academicYear: form.academic.year,
+              academicProgram: form.academic.track === 'college' ? form.academic.program : null,
+            }
+          : {}),
       });
       resetForm();
     } catch (err) {
@@ -156,6 +176,7 @@ export function AdminUsers() {
       department: u.department ?? '',
       employeeId: u.employeeId ?? '',
       officeLocation: u.officeLocation ?? '',
+      academic: userToAcademicEnrollment(u),
     });
     setError('');
   };
@@ -164,9 +185,16 @@ export function AdminUsers() {
     e.preventDefault();
     if (!editingId) return;
     setError('');
+    if (form.role === 'student' || form.role === 'teacher') {
+      const ae = validateAcademicEnrollment(form.academic);
+      if (ae) {
+        setError(ae);
+        return;
+      }
+    }
     if (form.role === 'teacher') {
-      if (!form.phone?.trim() || !form.department?.trim() || !form.employeeId?.trim()) {
-        setError('Teachers require phone, department, and employee/staff ID.');
+      if (!form.phone?.trim() || !form.employeeId?.trim()) {
+        setError('Teachers require phone and employee/staff ID.');
         return;
       }
     }
@@ -177,6 +205,9 @@ export function AdminUsers() {
       password: string;
       phone: string;
       department: string;
+      academicTrack: AppUser['academicTrack'];
+      academicYear: string;
+      academicProgram: string | null;
       employeeId: string;
       officeLocation: string;
     }> = {
@@ -187,9 +218,28 @@ export function AdminUsers() {
     if (form.password.trim()) updates.password = form.password;
     if (form.role === 'teacher') {
       updates.phone = (form.phone ?? '').trim();
-      updates.department = (form.department ?? '').trim();
       updates.employeeId = (form.employeeId ?? '').trim();
       updates.officeLocation = (form.officeLocation ?? '').trim();
+      updates.academicTrack = form.academic.track as AcademicTrack;
+      updates.academicYear = form.academic.year;
+      updates.academicProgram = form.academic.track === 'college' ? form.academic.program : null;
+      updates.department = formatAcademicDepartmentLine(
+        form.academic.track as AcademicTrack,
+        form.academic.year,
+        form.academic.track === 'college' ? form.academic.program : null
+      );
+    } else if (form.role === 'student') {
+      updates.phone = '';
+      updates.employeeId = '';
+      updates.officeLocation = '';
+      updates.academicTrack = form.academic.track as AcademicTrack;
+      updates.academicYear = form.academic.year;
+      updates.academicProgram = form.academic.track === 'college' ? form.academic.program : null;
+      updates.department = formatAcademicDepartmentLine(
+        form.academic.track as AcademicTrack,
+        form.academic.year,
+        form.academic.track === 'college' ? form.academic.program : null
+      );
     } else {
       updates.phone = '';
       updates.department = '';
@@ -304,6 +354,17 @@ export function AdminUsers() {
                 ))}
               </select>
             </div>
+            {(form.role === 'student' || form.role === 'teacher') && (
+              <div className="space-y-3 rounded-xl border border-slate-100 bg-slate-50/80 p-4">
+                <p className="text-sm font-medium text-slate-800">School enrollment</p>
+                <AcademicEnrollmentFields
+                  idPrefix="admin-user-academic"
+                  variant="light"
+                  value={form.academic}
+                  onChange={(academic) => setForm((f) => ({ ...f, academic }))}
+                />
+              </div>
+            )}
             {form.role === 'teacher' && (
               <div className="space-y-3 rounded-xl border border-slate-100 bg-slate-50/80 p-4">
                 <p className="text-sm font-medium text-slate-800">Teacher / staff profile</p>
@@ -315,16 +376,6 @@ export function AdminUsers() {
                     onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
                     className={inputClass}
                     placeholder="Contact number"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Department</label>
-                  <input
-                    type="text"
-                    value={form.department ?? ''}
-                    onChange={(e) => setForm((f) => ({ ...f, department: e.target.value }))}
-                    className={inputClass}
-                    placeholder="Department"
                   />
                 </div>
                 <div>
@@ -409,7 +460,7 @@ export function AdminUsers() {
                   Role
                 </th>
                 <th className="w-[38%] px-4 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
-                  Teacher &amp; staff
+                  Profile &amp; staff
                 </th>
                 <th className="w-[20%] min-w-[8.5rem] px-4 py-3.5 text-right text-xs font-semibold uppercase tracking-wider text-slate-500">
                   Actions
@@ -422,7 +473,7 @@ export function AdminUsers() {
                   <td className="px-4 py-4 align-top">
                     <div className="flex items-start gap-2.5">
                       <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-500">
-                        <User className="h-4 w-4" aria-hidden />
+                        <UserIcon className="h-4 w-4" aria-hidden />
                       </span>
                       <div className="min-w-0">
                         <p className="font-semibold leading-snug text-slate-900">{u.name}</p>
@@ -439,7 +490,16 @@ export function AdminUsers() {
                     </span>
                   </td>
                   <td className="px-4 py-4 align-top text-slate-600">
-                    {u.role === 'teacher' ? (
+                    {u.role === 'student' ? (
+                      formatUserAcademicLine(u) ? (
+                        <p className="flex items-start gap-2 text-xs">
+                          <Building2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-campus-primary" aria-hidden />
+                          <span>{formatUserAcademicLine(u)}</span>
+                        </p>
+                      ) : (
+                        <span className="text-slate-400">—</span>
+                      )
+                    ) : u.role === 'teacher' ? (
                       <div className="space-y-3">
                         <div className="flex flex-wrap items-center gap-2">
                           <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${approvalBadgeClass(u.approvalStatus)}`}>

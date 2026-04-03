@@ -1,11 +1,41 @@
 -- Seed data (teacher row must satisfy chk_users_teacher_staff_fields: phone, department, employee_id)
 -- Demo user ids (admin-1, …) are not Supabase Auth UUIDs; the app signs them in via public.users password first (see 10_auth_public_users_alignment.sql).
-insert into public.users (id, public_id, email, name, role, approval_status, phone, department, employee_id, created_at, password)
+insert into public.users (
+  id,
+  public_id,
+  email,
+  name,
+  role,
+  approval_status,
+  phone,
+  department,
+  employee_id,
+  academic_track,
+  academic_year,
+  academic_program,
+  created_at,
+  password
+)
 values
-  ('admin-1', 910245, 'admin@gmail.com', 'Admin', 'administrator', null, null, null, null, now(), 'admin1919'),
-  ('org-1', 726184, 'organiser@gmail.com', 'Organiser', 'organiser', null, null, null, null, now(), 'organiser1919'),
-  ('tea-1', 583907, 'teacher@gmail.com', 'Teacher', 'teacher', 'approved', '555-0100', 'General', 'TCH-001', now(), 'teacher1919'),
-  ('stu-1', 442761, 'student@gmail.com', 'Student', 'student', null, null, null, null, now(), 'student1919')
+  ('admin-1', 910245, 'admin@gmail.com', 'Admin', 'administrator', null, null, null, null, null, null, null, now(), 'admin1919'),
+  ('org-1', 726184, 'organiser@gmail.com', 'Organiser', 'organiser', null, null, null, null, null, null, null, now(), 'organiser1919'),
+  ('tea-1', 583907, 'teacher@gmail.com', 'Teacher', 'teacher', 'approved', '555-0100', 'General', 'TCH-001', null, null, null, now(), 'teacher1919'),
+  (
+    'stu-1',
+    442761,
+    'student@gmail.com',
+    'Student',
+    'student',
+    null,
+    null,
+    'College — BS Information Technology — First year',
+    null,
+    'college',
+    '1',
+    'BS Information Technology',
+    now(),
+    'student1919'
+  )
 on conflict (id) do nothing;
 
 -- Drop legacy multi-event demo rows (safe if ids never existed)

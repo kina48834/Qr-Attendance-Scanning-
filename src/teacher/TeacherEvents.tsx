@@ -1,10 +1,10 @@
 import { useMemo, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useData } from '@/context/DataContext';
 import { EventListSearchBar } from '@/components/EventListSearchBar';
 import { filterEventsBySearch } from '@/utils/eventSearch';
 import { format } from 'date-fns';
-import { Calendar, ClipboardList, MapPin, User, Plus, Edit2, Trash2 } from 'lucide-react';
+import { Calendar, ClipboardList, MapPin, User, Edit2, Trash2 } from 'lucide-react';
 import { PageHeader, RoleBadge } from '@/components/PageHeader';
 import { eventStatusBadgeClass } from '@/utils/eventStatusStyles';
 
@@ -26,20 +26,11 @@ export function TeacherEvents() {
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-        <PageHeader
-          title="All events"
-          description="Add, edit, and delete events. Assign organisers."
-          badge={<RoleBadge>Teacher</RoleBadge>}
-        />
-        <Link
-          to="/teacher/events/new"
-          className="inline-flex shrink-0 items-center justify-center gap-2 px-5 py-2.5 bg-campus-primary text-white rounded-xl font-semibold text-sm hover:bg-campus-secondary shadow-md shadow-blue-500/15 transition-colors"
-        >
-          <Plus className="w-4 h-4" />
-          Add event
-        </Link>
-      </div>
+      <PageHeader
+        title="All events"
+        description="View and manage campus events: rosters, edits, and status. New events are created by administrators or organisers."
+        badge={<RoleBadge>Teacher</RoleBadge>}
+      />
 
       {sortedEvents.length > 0 && (
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
@@ -139,13 +130,9 @@ export function TeacherEvents() {
         {sortedEvents.length === 0 && (
           <div className="p-14 text-center text-slate-500">
             <p className="font-medium text-slate-700">No events yet</p>
-            <p className="text-sm mt-1">Create the first event for your campus.</p>
-            <Link
-              to="/teacher/events/new"
-              className="mt-4 inline-flex items-center justify-center rounded-xl bg-campus-primary px-4 py-2 text-sm font-semibold text-white hover:bg-campus-secondary"
-            >
-              Add event
-            </Link>
+            <p className="text-sm mt-1 max-w-md mx-auto">
+              When an administrator or organiser publishes an event, it will appear here for you to manage.
+            </p>
           </div>
         )}
         {sortedEvents.length > 0 && visibleEvents.length === 0 && (

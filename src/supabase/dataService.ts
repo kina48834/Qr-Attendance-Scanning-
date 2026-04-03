@@ -1,6 +1,8 @@
 import type { AttendanceRecord, Event, EventRegistration, User } from '@/types';
 import { getEventQrCodeData } from '@/utils/attendanceQR';
 import { supabase } from '@/supabase/client';
+import { formatAcademicDepartmentLine, validateAcademicEnrollment } from '@/constants/academicEnrollment';
+import type { AcademicEnrollmentValue } from '@/constants/academicEnrollment';
 
 type UserRow = {
   id: string;
@@ -12,6 +14,9 @@ type UserRow = {
   approval_status: User['approvalStatus'] | null;
   phone: string | null;
   department: string | null;
+  academic_track: string | null;
+  academic_year: string | null;
+  academic_program: string | null;
   employee_id: string | null;
   office_location: string | null;
   created_at: string;
@@ -62,10 +67,47 @@ function toUser(row: UserRow): User {
     ...(row.approval_status ? { approvalStatus: row.approval_status } : {}),
     ...(row.phone ? { phone: row.phone } : {}),
     ...(row.department ? { department: row.department } : {}),
+    ...(row.academic_track ? { academicTrack: row.academic_track as User['academicTrack'] } : {}),
+    ...(row.academic_year ? { academicYear: row.academic_year } : {}),
+    ...(row.academic_program ? { academicProgram: row.academic_program } : {}),
     ...(row.employee_id ? { employeeId: row.employee_id } : {}),
     ...(row.office_location ? { officeLocation: row.office_location } : {}),
     createdAt: row.created_at,
     ...(row.password ? { password: row.password } : {}),
+  };
+}
+
+function departmentFromAcademicOrLegacy(
+  academic: Pick<AcademicEnrollmentValue, 'track' | 'year' | 'program'> | undefined,
+  legacyDepartment: string | undefined
+): { department: string | null; track: string | null; year: string | null; program: string | null } {
+  if (academic?.track && academic.year) {
+    const err = validateAcademicEnrollment({
+      track: academic.track,
+      year: academic.year,
+      program: academic.program ?? '',
+    });
+    if (err) {
+      return {
+        department: legacyDepartment?.trim() || null,
+        track: null,
+        year: null,
+        program: null,
+      };
+    }
+    const line = formatAcademicDepartmentLine(academic.track, academic.year, academic.program || null);
+    return {
+      department: line,
+      track: academic.track,
+      year: academic.year,
+      program: academic.track === 'college' ? (academic.program || '').trim() || null : null,
+    };
+  }
+  return {
+    department: legacyDepartment?.trim() || null,
+    track: null,
+    year: null,
+    program: null,
   };
 }
 
@@ -216,12 +258,24 @@ export async function insertUser(
     password: string;
     phone?: string;
     department?: string;
+    academicTrack?: User['academicTrack'];
+    academicYear?: string;
+    academicProgram?: string | null;
     employeeId?: string;
     officeLocation?: string;
     approvalStatus?: User['approvalStatus'];
   },
   options?: { id?: string }
 ): Promise<User> {
+  const academic =
+    payload.academicTrack && payload.academicYear
+      ? {
+          track: payload.academicTrack,
+          year: payload.academicYear,
+          program: payload.academicProgram ?? '',
+        }
+      : undefined;
+  const derived = departmentFromAcademicOrLegacy(academic, payload.department);
   const row = {
     id: options?.id ?? makeId('user'),
     email: payload.email.trim().toLowerCase(),
@@ -230,7 +284,10 @@ export async function insertUser(
     password: payload.password,
     approval_status: payload.approvalStatus ?? null,
     phone: payload.phone?.trim() || null,
-    department: payload.department?.trim() || null,
+    department: derived.department,
+    academic_track: derived.track,
+    academic_year: derived.year,
+    academic_program: derived.program,
     employee_id: payload.employeeId?.trim() || null,
     office_location: payload.officeLocation?.trim() || null,
     created_at: new Date().toISOString(),
@@ -248,6 +305,9 @@ export async function patchUser(id: string, updates: Partial<User>): Promise<Use
   if (updates.password !== undefined) payload.password = updates.password;
   if (updates.phone !== undefined) payload.phone = updates.phone || null;
   if (updates.department !== undefined) payload.department = updates.department || null;
+  if (updates.academicTrack !== undefined) payload.academic_track = updates.academicTrack || null;
+  if (updates.academicYear !== undefined) payload.academic_year = updates.academicYear || null;
+  if (updates.academicProgram !== undefined) payload.academic_program = updates.academicProgram ?? null;
   if (updates.employeeId !== undefined) payload.employee_id = updates.employeeId || null;
   if (updates.officeLocation !== undefined) payload.office_location = updates.officeLocation || null;
   if (updates.approvalStatus !== undefined) payload.approval_status = updates.approvalStatus || null;

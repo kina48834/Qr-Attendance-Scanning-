@@ -79,13 +79,16 @@ comment on column public.users.password is 'Plaintext in demo app; use hashing i
 comment on column public.users.role is 'administrator | organiser | student | teacher — routes and permissions.';
 comment on column public.users.approval_status is 'Teacher only: pending (self-register), approved/rejected (admin).';
 comment on column public.users.phone is 'Teacher profile; required when role = teacher.';
-comment on column public.users.department is 'Teacher profile; required when role = teacher.';
+comment on column public.users.department is 'Summary line for lists/search; set from school enrollment for students/teachers (formatAcademicDepartmentLine) or legacy teacher text.';
+comment on column public.users.academic_track is 'junior_high | senior_high | college — registration (Register.tsx).';
+comment on column public.users.academic_year is 'JH 1–4, SH 11–12, college 1–4; see academicEnrollment.ts.';
+comment on column public.users.academic_program is 'College program name when track = college; otherwise null.';
 comment on column public.users.employee_id is 'Teacher staff ID; required when role = teacher.';
 comment on column public.users.office_location is 'Optional teacher office/room.';
 comment on column public.users.avatar is 'Optional profile image URL (reserved for future UI).';
 
 comment on table public.events is
-  'Events browsed by students; created/edited by admin/organiser/teacher; QR via qr_code_data / EVT-{id}.';
+  'Events browsed by students. Inserts: admin / organiser (app). Teachers manage existing events (edit, roster, delete) but the teacher Events UI does not add new rows — align with Campus Connect teacher routes.';
 
 comment on column public.events.organiser_id is 'FK to users; organiser or teacher (AdminEventForm).';
 comment on column public.events.organiser_name is 'Denormalised display name for lists and search.';

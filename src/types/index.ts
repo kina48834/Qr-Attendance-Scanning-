@@ -1,5 +1,7 @@
 export type UserRole = 'administrator' | 'organiser' | 'student' | 'teacher';
 
+export type AcademicTrack = 'junior_high' | 'senior_high' | 'college';
+
 export type TeacherApprovalStatus = 'approved' | 'pending' | 'rejected';
 
 export interface User {
@@ -15,6 +17,10 @@ export interface User {
   /** Teacher / staff profile (optional for other roles) */
   phone?: string;
   department?: string;
+  /** Junior high / senior high / college — registration & profile */
+  academicTrack?: AcademicTrack;
+  academicYear?: string;
+  academicProgram?: string | null;
   employeeId?: string;
   officeLocation?: string;
   createdAt: string;

@@ -1,5 +1,14 @@
 import { createContext, useContext, useState, useCallback, useEffect, ReactNode } from 'react';
-import type { Event, AttendanceRecord, User, UserRole, EventRegistration, DashboardStats, AnalyticsData } from '@/types';
+import type {
+  Event,
+  AttendanceRecord,
+  User,
+  UserRole,
+  AcademicTrack,
+  EventRegistration,
+  DashboardStats,
+  AnalyticsData,
+} from '@/types';
 import {
   ensureSupabaseReady,
   fetchAttendance,
@@ -24,6 +33,9 @@ export interface AddUserPayload {
   password: string;
   phone?: string;
   department?: string;
+  academicTrack?: AcademicTrack;
+  academicYear?: string;
+  academicProgram?: string | null;
   employeeId?: string;
   officeLocation?: string;
 }
@@ -33,8 +45,10 @@ export type PublicRegisterPayload = {
   name: string;
   password: string;
   role: 'student' | 'teacher';
+  academicTrack: AcademicTrack;
+  academicYear: string;
+  academicProgram?: string | null;
   phone?: string;
-  department?: string;
   employeeId?: string;
   officeLocation?: string;
 };
@@ -63,6 +77,9 @@ interface DataContextType {
         | 'password'
         | 'phone'
         | 'department'
+        | 'academicTrack'
+        | 'academicYear'
+        | 'academicProgram'
         | 'employeeId'
         | 'officeLocation'
         | 'approvalStatus'
@@ -170,9 +187,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
       const { data: authData, error: authError } = await authSignUp(emailNorm, passwordTrimmed, {
         name: payload.name.trim(),
         role: payload.role,
+        academic_track: payload.academicTrack,
+        academic_year: payload.academicYear,
+        academic_program: payload.academicProgram ?? '',
         ...(payload.role === 'teacher' && {
           phone: payload.phone?.trim() ?? '',
-          department: payload.department?.trim() ?? '',
           employee_id: payload.employeeId?.trim() ?? '',
           office_location: payload.officeLocation?.trim() ?? '',
         }),
@@ -192,10 +211,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
             name: payload.name.trim(),
             role: payload.role,
             password: SUPABASE_AUTH_PASSWORD_MARKER,
+            academicTrack: payload.academicTrack,
+            academicYear: payload.academicYear,
+            academicProgram: payload.academicProgram ?? null,
             ...(payload.role === 'teacher'
               ? {
                   phone: payload.phone,
-                  department: payload.department,
                   employeeId: payload.employeeId,
                   officeLocation: payload.officeLocation,
                   approvalStatus: 'pending' as const,

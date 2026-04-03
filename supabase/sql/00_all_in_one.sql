@@ -6,6 +6,7 @@
 --   05_rls.sql  06_seed.sql  07_constraints.sql  08_triggers.sql
 --   09_comments.sql  10_auth_public_users_alignment.sql  11_api_grants.sql
 --   14_student_event_reminder_functions.sql
+--   15_academic_enrollment_columns.sql (also inlined in 07_constraints.sql)
 --   12_verify_demo_users.sql  13_repair_demo_login_users.sql
 -- update this file to match (or re-paste sections).
 --
@@ -45,6 +46,9 @@ create table if not exists public.users (
   department text null,
   employee_id text null,
   office_location text null,
+  academic_track text null,
+  academic_year text null,
+  academic_program text null,
   created_at timestamptz not null default now(),
   password text not null
 );
@@ -157,6 +161,10 @@ end $$;
 alter table public.users alter column public_id set not null;
 alter table public.users alter column public_id set default public.generate_public_user_id();
 
+alter table public.users add column if not exists academic_track text;
+alter table public.users add column if not exists academic_year text;
+alter table public.users add column if not exists academic_program text;
+
 -- Data fixes (before ADD CONSTRAINT on live DBs with legacy rows)
 update public.events
 set end_date = start_date
@@ -204,6 +212,33 @@ alter table public.users
       and btrim(department) <> ''
       and employee_id is not null
       and btrim(employee_id) <> ''
+    )
+  );
+
+alter table public.users drop constraint if exists chk_users_academic_shape;
+alter table public.users
+  add constraint chk_users_academic_shape check (
+    academic_track is null
+    or (
+      academic_track in ('junior_high', 'senior_high', 'college')
+      and (
+        (
+          academic_track = 'junior_high'
+          and academic_year in ('1', '2', '3', '4')
+          and (academic_program is null or btrim(academic_program) = '')
+        )
+        or (
+          academic_track = 'senior_high'
+          and academic_year in ('11', '12')
+          and (academic_program is null or btrim(academic_program) = '')
+        )
+        or (
+          academic_track = 'college'
+          and academic_year in ('1', '2', '3', '4')
+          and academic_program is not null
+          and btrim(academic_program) <> ''
+        )
+      )
     )
   );
 
@@ -305,12 +340,15 @@ comment on column public.users.password is 'Plaintext in demo app; use hashing i
 comment on column public.users.role is 'administrator | organiser | student | teacher — routes and permissions.';
 comment on column public.users.approval_status is 'Teacher only: pending (self-register), approved/rejected (admin).';
 comment on column public.users.phone is 'Teacher profile; required when role = teacher.';
-comment on column public.users.department is 'Teacher profile; required when role = teacher.';
+comment on column public.users.department is 'Summary line for lists/search; from school enrollment or legacy teacher text.';
+comment on column public.users.academic_track is 'junior_high | senior_high | college — Register.tsx.';
+comment on column public.users.academic_year is 'JH 1–4, SH 11–12, college 1–4.';
+comment on column public.users.academic_program is 'College program when track = college; else null.';
 comment on column public.users.employee_id is 'Teacher staff ID; required when role = teacher.';
 comment on column public.users.office_location is 'Optional teacher office/room.';
 comment on column public.users.avatar is 'Optional profile image URL (reserved for future UI).';
 comment on table public.events is
-  'Events browsed by students; created/edited by admin/organiser/teacher; QR via qr_code_data / EVT-{id}.';
+  'Events browsed by students. Inserts: admin / organiser (app). Teachers manage existing events (edit, roster, delete) but the teacher Events UI does not add new rows — align with Campus Connect teacher routes.';
 comment on column public.events.organiser_id is 'FK to users; organiser or teacher (AdminEventForm).';
 comment on column public.events.organiser_name is 'Denormalised display name for lists and search.';
 comment on column public.events.status is 'draft | published | completed | cancelled — gates student scan.';
@@ -425,12 +463,42 @@ grant execute on function public.student_reminders_count(text) to anon, authenti
 -- Seed data (teacher row must satisfy chk_users_teacher_staff_fields).
 -- Demo user ids (admin-1, …) are not Supabase Auth UUIDs; table-password login first (see 10).
 
-insert into public.users (id, public_id, email, name, role, approval_status, phone, department, employee_id, created_at, password)
+insert into public.users (
+  id,
+  public_id,
+  email,
+  name,
+  role,
+  approval_status,
+  phone,
+  department,
+  employee_id,
+  academic_track,
+  academic_year,
+  academic_program,
+  created_at,
+  password
+)
 values
-  ('admin-1', 910245, 'admin@gmail.com', 'Admin', 'administrator', null, null, null, null, now(), 'admin1919'),
-  ('org-1', 726184, 'organiser@gmail.com', 'Organiser', 'organiser', null, null, null, null, now(), 'organiser1919'),
-  ('tea-1', 583907, 'teacher@gmail.com', 'Teacher', 'teacher', 'approved', '555-0100', 'General', 'TCH-001', now(), 'teacher1919'),
-  ('stu-1', 442761, 'student@gmail.com', 'Student', 'student', null, null, null, null, now(), 'student1919')
+  ('admin-1', 910245, 'admin@gmail.com', 'Admin', 'administrator', null, null, null, null, null, null, null, now(), 'admin1919'),
+  ('org-1', 726184, 'organiser@gmail.com', 'Organiser', 'organiser', null, null, null, null, null, null, null, now(), 'organiser1919'),
+  ('tea-1', 583907, 'teacher@gmail.com', 'Teacher', 'teacher', 'approved', '555-0100', 'General', 'TCH-001', null, null, null, now(), 'teacher1919'),
+  (
+    'stu-1',
+    442761,
+    'student@gmail.com',
+    'Student',
+    'student',
+    null,
+    null,
+    'College — BS Information Technology — First year',
+    null,
+    'college',
+    '1',
+    'BS Information Technology',
+    now(),
+    'student1919'
+  )
 on conflict (id) do nothing;
 
 -- Drop legacy multi-event demo rows (safe if ids never existed)

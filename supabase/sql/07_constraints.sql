@@ -36,6 +36,11 @@ end $$;
 alter table public.users alter column public_id set not null;
 alter table public.users alter column public_id set default public.generate_public_user_id();
 
+-- Academic enrollment (Register.tsx, profiles); mirrors src/constants/academicEnrollment.ts
+alter table public.users add column if not exists academic_track text;
+alter table public.users add column if not exists academic_year text;
+alter table public.users add column if not exists academic_program text;
+
 -- ---------------------------------------------------------------------------
 -- Data fixes (run before ADD CONSTRAINT on live databases with legacy rows)
 -- ---------------------------------------------------------------------------
@@ -95,5 +100,32 @@ alter table public.users
       and btrim(department) <> ''
       and employee_id is not null
       and btrim(employee_id) <> ''
+    )
+  );
+
+alter table public.users drop constraint if exists chk_users_academic_shape;
+alter table public.users
+  add constraint chk_users_academic_shape check (
+    academic_track is null
+    or (
+      academic_track in ('junior_high', 'senior_high', 'college')
+      and (
+        (
+          academic_track = 'junior_high'
+          and academic_year in ('1', '2', '3', '4')
+          and (academic_program is null or btrim(academic_program) = '')
+        )
+        or (
+          academic_track = 'senior_high'
+          and academic_year in ('11', '12')
+          and (academic_program is null or btrim(academic_program) = '')
+        )
+        or (
+          academic_track = 'college'
+          and academic_year in ('1', '2', '3', '4')
+          and academic_program is not null
+          and btrim(academic_program) <> ''
+        )
+      )
     )
   );

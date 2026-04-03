@@ -245,5 +245,6 @@ export const teacherNav = [
   { to: '/teacher/events', label: 'Events', icon: <Calendar className="w-5 h-5" /> },
   { to: '/teacher/users', label: 'Users', icon: <Users className="w-5 h-5" /> },
   { to: '/teacher/analytics', label: 'Analytics', icon: <BarChart3 className="w-5 h-5" /> },
+  { to: '/teacher/profile', label: 'Profile', icon: <User className="w-5 h-5" /> },
 ];
 

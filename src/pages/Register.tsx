@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { ChevronDown, GraduationCap, Info, School, UserPlus } from 'lucide-react';
+import type { AcademicTrack } from '@/types';
 import { useAuth } from '@/context/AuthContext';
 import { useData } from '@/context/DataContext';
 import { PasswordField } from '@/components/PasswordField';
@@ -18,6 +19,12 @@ import {
   landingAlertError,
 } from '@/components/auth/authClasses';
 import { authSignOut } from '@/supabase/authFlow';
+import { AcademicEnrollmentFields } from '@/components/AcademicEnrollmentFields';
+import {
+  emptyAcademicEnrollment,
+  validateAcademicEnrollment,
+  type AcademicEnrollmentValue,
+} from '@/constants/academicEnrollment';
 
 export function Register() {
   const [name, setName] = useState('');
@@ -25,8 +32,8 @@ export function Register() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [accountRole, setAccountRole] = useState<'student' | 'teacher'>('student');
+  const [academic, setAcademic] = useState<AcademicEnrollmentValue>(() => emptyAcademicEnrollment());
   const [teacherPhone, setTeacherPhone] = useState('');
-  const [teacherDepartment, setTeacherDepartment] = useState('');
   const [teacherEmployeeId, setTeacherEmployeeId] = useState('');
   const [teacherOffice, setTeacherOffice] = useState('');
   const [error, setError] = useState('');
@@ -45,9 +52,14 @@ export function Register() {
       setError('Password must be at least 6 characters.');
       return;
     }
+    const acErr = validateAcademicEnrollment(academic);
+    if (acErr) {
+      setError(acErr);
+      return;
+    }
     if (accountRole === 'teacher') {
-      if (!teacherPhone.trim() || !teacherDepartment.trim() || !teacherEmployeeId.trim()) {
-        setError('Teachers must provide phone, department, and employee/staff ID.');
+      if (!teacherPhone.trim() || !teacherEmployeeId.trim()) {
+        setError('Teachers must provide phone and employee/staff ID.');
         return;
       }
     }
@@ -57,9 +69,11 @@ export function Register() {
         name: name.trim(),
         role: accountRole,
         password,
+        academicTrack: academic.track as AcademicTrack,
+        academicYear: academic.year,
+        academicProgram: academic.track === 'college' ? academic.program : null,
         ...(accountRole === 'teacher' && {
           phone: teacherPhone.trim(),
-          department: teacherDepartment.trim(),
           employeeId: teacherEmployeeId.trim(),
           ...(teacherOffice.trim() && { officeLocation: teacherOffice.trim() }),
         }),
@@ -201,6 +215,15 @@ export function Register() {
                 autoComplete="email"
               />
             </div>
+            <div className="rounded-lg border border-white/10 bg-white/[0.04] p-3">
+              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-white/55">School enrollment</p>
+              <AcademicEnrollmentFields
+                idPrefix="register-academic"
+                variant="landing"
+                value={academic}
+                onChange={setAcademic}
+              />
+            </div>
           </div>
 
           {accountRole === 'teacher' && (
@@ -222,20 +245,6 @@ export function Register() {
                   className={landingAuthInputClass}
                   placeholder="Contact number"
                   autoComplete="tel"
-                />
-              </div>
-              <div>
-                <label htmlFor="register-dept" className={landingAuthLabelClass}>
-                  Department
-                </label>
-                <input
-                  id="register-dept"
-                  type="text"
-                  value={teacherDepartment}
-                  onChange={(e) => setTeacherDepartment(e.target.value)}
-                  required={accountRole === 'teacher'}
-                  className={landingAuthInputClass}
-                  placeholder="e.g. Mathematics"
                 />
               </div>
               <div>

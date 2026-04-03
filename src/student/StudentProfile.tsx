@@ -1,13 +1,15 @@
 import { Link } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { useData } from '@/context/DataContext';
-import { User, Mail, Calendar } from 'lucide-react';
+import { User, Mail, Calendar, Building2 } from 'lucide-react';
 import { format } from 'date-fns';
+import { formatUserAcademicLine } from '@/utils/academicProfileDisplay';
 
 export function StudentProfile() {
   const { user } = useAuth();
   const { attendance, events } = useData();
   const myAttendance = user ? attendance.filter((a) => a.userId === user.id) : [];
+  const academicLine = user ? formatUserAcademicLine(user) : null;
 
   return (
     <div className="space-y-8 max-w-2xl">
@@ -31,6 +33,15 @@ export function StudentProfile() {
             <Calendar className="w-5 h-5 text-slate-400" />
             <span className="text-slate-600">Student</span>
           </div>
+          {academicLine && (
+            <div className="flex items-start gap-3">
+              <Building2 className="mt-0.5 h-5 w-5 shrink-0 text-campus-primary" />
+              <div>
+                <p className="text-xs font-medium uppercase tracking-wide text-slate-500">School enrollment</p>
+                <p className="text-slate-800">{academicLine}</p>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
