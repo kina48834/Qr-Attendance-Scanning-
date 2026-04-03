@@ -5,10 +5,11 @@
 --   01_extensions.sql  02_types.sql  03_tables.sql  04_indexes.sql
 --   05_rls.sql  06_seed.sql  07_constraints.sql  08_triggers.sql
 --   09_comments.sql  10_auth_public_users_alignment.sql  11_api_grants.sql
+--   14_student_event_reminder_functions.sql
 --   12_verify_demo_users.sql  13_repair_demo_login_users.sql
 -- update this file to match (or re-paste sections).
 --
--- Order in this file: 01 → 02 → 03 → 04 → 07 → 08 → 09 → 05 → 11 → 06 → 10 → 12.
+-- Order in this file: 01 → 02 → 03 → 04 → 07 → 08 → 09 → 05 → 11 → 14 → 06 → 10 → 12.
 -- Script 13 is appended only as a commented block (run separately to repair existing DBs).
 
 -- --- 01_extensions.sql ---
@@ -350,6 +351,75 @@ grant select, insert, update, delete on table public.users to anon, authenticate
 grant select, insert, update, delete on table public.events to anon, authenticated;
 grant select, insert, update, delete on table public.attendance to anon, authenticated;
 grant select, insert, update, delete on table public.event_registrations to anon, authenticated;
+
+-- --- 14_student_event_reminder_functions.sql ---
+-- Optional RPC mirror of student Reminders page (see src/utils/studentEventReminders.ts).
+
+create or replace function public.student_events_open_no_attendance(p_user_id text)
+returns setof public.events
+language sql
+stable
+as $$
+  select e.*
+  from public.events e
+  where e.status = 'published'
+    and e.end_date >= now()
+    and not exists (
+      select 1 from public.attendance a
+      where a.event_id = e.id and a.user_id = p_user_id
+    )
+  order by e.start_date asc;
+$$;
+
+create or replace function public.student_events_missed_no_attendance(p_user_id text)
+returns setof public.events
+language sql
+stable
+as $$
+  select e.*
+  from public.events e
+  where e.status in ('published', 'completed')
+    and e.end_date < now()
+    and not exists (
+      select 1 from public.attendance a
+      where a.event_id = e.id and a.user_id = p_user_id
+    )
+  order by e.end_date desc;
+$$;
+
+grant execute on function public.student_events_open_no_attendance(text) to anon, authenticated;
+grant execute on function public.student_events_missed_no_attendance(text) to anon, authenticated;
+
+create or replace function public.student_reminders_count(p_user_id text)
+returns integer
+language sql
+stable
+as $$
+  select coalesce(
+    (select count(*)::int
+     from public.events e
+     where e.status = 'published'
+       and e.end_date >= now()
+       and not exists (
+         select 1 from public.attendance a
+         where a.event_id = e.id and a.user_id = p_user_id
+       )),
+    0
+  )
+  + coalesce(
+    (select count(*)::int
+     from public.events e
+     where e.status in ('published', 'completed')
+       and e.end_date < now()
+       and not exists (
+         select 1 from public.attendance a
+         where a.event_id = e.id and a.user_id = p_user_id
+       )),
+    0
+  );
+$$;
+
+grant execute on function public.student_reminders_count(text) to anon, authenticated;
 
 -- --- 06_seed.sql ---
 -- Seed data (teacher row must satisfy chk_users_teacher_staff_fields).

@@ -121,7 +121,7 @@ export function Login() {
 
   return (
     <AuthPageLayout authMode="login">
-      <LandingAuthFormCard icon={LogIn}>
+      <LandingAuthFormCard>
         <p className={landingAuthEyebrowClass}>Andres Soriano Colleges of Bislig</p>
         <h1 className="mt-1 text-xl font-bold tracking-tight text-white sm:text-2xl">Sign in</h1>
         <p className="mt-1 text-xs text-white/65 sm:text-sm">Campus Connect — events, QR attendance, and analytics.</p>

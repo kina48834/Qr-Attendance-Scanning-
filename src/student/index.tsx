@@ -6,6 +6,7 @@ import { StudentScan } from './StudentScan';
 import { StudentShowQR } from './StudentShowQR';
 import { StudentProfile } from './StudentProfile';
 import { StudentAttendanceHistory } from './StudentAttendanceHistory';
+import { StudentNotifications } from './StudentNotifications';
 
 export function StudentRoutes() {
   const { user, isAuthenticated } = useAuth();
@@ -24,6 +25,7 @@ export function StudentRoutes() {
         <Route path="scan" element={<StudentScan />} />
         <Route path="show-qr" element={<StudentShowQR />} />
         <Route path="history" element={<StudentAttendanceHistory />} />
+        <Route path="notifications" element={<StudentNotifications />} />
         <Route path="profile" element={<StudentProfile />} />
         <Route path="*" element={<Navigate to="/student" replace />} />
       </Routes>

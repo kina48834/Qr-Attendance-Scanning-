@@ -1,16 +1,29 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useData } from '@/context/DataContext';
-import { getEventQrCodeData } from '@/utils/attendanceQR';
+import { useAuth } from '@/context/AuthContext';
 import type { Event } from '@/types';
 
 export function TeacherEventForm() {
-  const { events, users, addEvent, updateEvent } = useData();
+  const { events, users, addEvent, updateEvent, loading: dataLoading } = useData();
+  const { user: authUser } = useAuth();
   const navigate = useNavigate();
   const { eventId } = useParams<{ eventId: string }>();
   const isEdit = Boolean(eventId);
   const existing = events.find((e) => e.id === eventId);
-  const organisers = users.filter((u) => u.role === 'organiser' || u.role === 'teacher');
+
+  const organisers = useMemo(() => {
+    const list = users.filter((u) => u.role === 'organiser' || u.role === 'teacher');
+    const byId = new Map(list.map((u) => [u.id, u] as const));
+    if (
+      authUser?.role === 'teacher' &&
+      authUser.id &&
+      !byId.has(authUser.id)
+    ) {
+      return [authUser, ...list];
+    }
+    return list;
+  }, [users, authUser]);
 
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -20,6 +33,7 @@ export function TeacherEventForm() {
   const [maxAttendees, setMaxAttendees] = useState<string>('');
   const [status, setStatus] = useState<Event['status']>('draft');
   const [organiserId, setOrganiserId] = useState('');
+  const [submitError, setSubmitError] = useState('');
 
   useEffect(() => {
     if (existing) {
@@ -31,47 +45,71 @@ export function TeacherEventForm() {
       setMaxAttendees(existing.maxAttendees?.toString() ?? '');
       setStatus(existing.status);
       setOrganiserId(existing.organiserId);
-    } else if (organisers.length > 0 && !organiserId) {
-      setOrganiserId(organisers[0].id);
+      return;
     }
-  }, [existing, organisers, organiserId]);
+    setOrganiserId((prev) => {
+      if (prev) return prev;
+      const self =
+        authUser?.role === 'teacher'
+          ? organisers.find((o) => o.id === authUser.id)
+          : undefined;
+      return self?.id ?? organisers[0]?.id ?? '';
+    });
+  }, [existing, organisers, authUser?.id, authUser?.role]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const organiser = users.find((u) => u.id === organiserId);
+    setSubmitError('');
+    const organiser = users.find((u) => u.id === organiserId) ?? organisers.find((o) => o.id === organiserId);
     if (!organiser && !isEdit) {
+      setSubmitError(
+        dataLoading
+          ? 'Still loading users — wait a moment and try again.'
+          : 'Select an organiser or teacher. Add staff under User Management if the list is empty.'
+      );
       return;
     }
     const start = new Date(startDate).toISOString();
     const end = new Date(endDate).toISOString();
-    if (isEdit && eventId) {
-      updateEvent(eventId, {
-        title,
-        description,
-        location,
-        startDate: start,
-        endDate: end,
-        maxAttendees: maxAttendees ? parseInt(maxAttendees, 10) : undefined,
-        status,
-        ...(organiser && { organiserId: organiser.id, organiserName: organiser.name }),
-      });
-      navigate('/teacher/events');
-    } else if (organiser) {
-      addEvent({
-        title,
-        description,
-        location,
-        startDate: start,
-        endDate: end,
-        organiserId: organiser.id,
-        organiserName: organiser.name,
-        status,
-        maxAttendees: maxAttendees ? parseInt(maxAttendees, 10) : undefined,
-        qrCodeData: getEventQrCodeData(`evt-${Date.now()}`),
-      });
-      navigate('/teacher/events');
+    try {
+      if (isEdit && eventId) {
+        await updateEvent(eventId, {
+          title,
+          description,
+          location,
+          startDate: start,
+          endDate: end,
+          maxAttendees: maxAttendees ? parseInt(maxAttendees, 10) : undefined,
+          status,
+          ...(organiser && { organiserId: organiser.id, organiserName: organiser.name }),
+        });
+        navigate('/teacher/events');
+      } else if (organiser) {
+        await addEvent({
+          title,
+          description,
+          location,
+          startDate: start,
+          endDate: end,
+          organiserId: organiser.id,
+          organiserName: organiser.name,
+          status,
+          maxAttendees: maxAttendees ? parseInt(maxAttendees, 10) : undefined,
+        });
+        navigate('/teacher/events');
+      }
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : 'Could not save the event.');
     }
   };
+
+  if (dataLoading && !isEdit) {
+    return (
+      <div className="max-w-2xl rounded-xl border border-slate-200 bg-white p-8 text-center text-slate-600">
+        Loading users and form…
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-2xl">
@@ -83,6 +121,9 @@ export function TeacherEventForm() {
       </div>
 
       <form onSubmit={handleSubmit} className="bg-white rounded-xl border border-slate-200 shadow-sm p-6 space-y-4">
+        {submitError && (
+          <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{submitError}</div>
+        )}
         <div>
           <label className="block text-sm font-medium text-slate-700 mb-1">Organiser/Teacher</label>
           <select

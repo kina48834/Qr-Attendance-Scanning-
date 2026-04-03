@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useData } from '@/context/DataContext';
-import { getEventQrCodeData } from '@/utils/attendanceQR';
 import type { Event } from '@/types';
 
 export function AdminEventForm() {
@@ -67,7 +66,6 @@ export function AdminEventForm() {
         organiserName: organiser.name,
         status,
         maxAttendees: maxAttendees ? parseInt(maxAttendees, 10) : undefined,
-        qrCodeData: getEventQrCodeData(`evt-${Date.now()}`),
       });
       navigate('/admin/events');
     }

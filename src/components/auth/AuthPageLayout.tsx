@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowLeft, ArrowRight } from 'lucide-react';
 import { BrandLogo } from '@/components/BrandLogo';
-import { landingHeroBackgroundStyle } from '@/constants/landingHeroBackground';
+import { authPagesBackgroundStyle } from '@/constants/authHeroBackground';
 
 type AuthPageLayoutProps = {
   children: ReactNode;
@@ -54,7 +54,7 @@ export function AuthPageLayout({ children, tall, authMode }: AuthPageLayoutProps
 
       <div
         className="relative flex min-h-0 flex-1 flex-col"
-        style={landingHeroBackgroundStyle()}
+        style={authPagesBackgroundStyle()}
       >
         <div
           className={`relative mx-auto w-full max-w-3xl flex-1 px-4 ${tall ? 'py-6 sm:py-10 pb-12' : 'py-6 sm:py-8'}`}

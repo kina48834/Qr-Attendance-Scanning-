@@ -1,7 +1,9 @@
-import { useState, ReactNode } from 'react';
+import { useState, useMemo, ReactNode } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
+import { useData } from '@/context/DataContext';
 import { BrandLogo } from '@/components/BrandLogo';
+import { studentReminderTotalCount } from '@/utils/studentEventReminders';
 import {
   LayoutDashboard,
   Calendar,
@@ -12,8 +14,11 @@ import {
   QrCode,
   User,
   History,
+  Bell,
   X,
 } from 'lucide-react';
+
+const STUDENT_REMINDERS_PATH = '/student/notifications';
 
 interface AppLayoutProps {
   children: ReactNode;
@@ -29,12 +34,30 @@ function roleLabel(role?: string): string {
   return 'User';
 }
 
-export function AppLayout({ children, navItems }: AppLayoutProps) {
+/** Active nav item: exact match, or prefix match when no more specific sibling route matches. */
+function navItemIsActive(pathname: string, to: string, allTos: string[]): boolean {
+  if (pathname === to) return true;
+  if (!pathname.startsWith(`${to}/`)) return false;
+  return !allTos.some(
+    (other) =>
+      other !== to &&
+      other.startsWith(`${to}/`) &&
+      (pathname === other || pathname.startsWith(`${other}/`))
+  );
+}
+
+export function AppLayout({ children, navItems, role }: AppLayoutProps) {
   const { user, logout } = useAuth();
+  const { events, attendance } = useData();
   const location = useLocation();
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  const studentReminderBadge = useMemo(() => {
+    if (role !== 'student' || !user?.id) return 0;
+    return studentReminderTotalCount(events, attendance, user.id);
+  }, [role, user?.id, events, attendance]);
 
   const handleLogout = () => {
     logout();
@@ -96,22 +119,50 @@ export function AppLayout({ children, navItems }: AppLayoutProps) {
           </div>
         </div>
         <nav className="flex-1 p-2 space-y-1 overflow-y-auto">
-          {navItems.map(({ to, label, icon }) => {
-            const isActive = location.pathname === to || location.pathname.startsWith(to + '/');
-            return (
-              <Link
-                key={to}
-                to={to}
-                onClick={closeMobileMenu}
-                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors min-h-[44px] ${
-                  isActive ? 'bg-campus-primary text-white' : 'hover:bg-campus-primary/70'
-                }`}
-              >
-                {icon}
-                {(sidebarOpen || mobileMenuOpen) && <span>{label}</span>}
-              </Link>
-            );
-          })}
+          {(() => {
+            const navPaths = navItems.map((n) => n.to);
+            return navItems.map(({ to, label, icon }) => {
+              const isActive = navItemIsActive(location.pathname, to, navPaths);
+              const showReminderBadge =
+                to === STUDENT_REMINDERS_PATH && studentReminderBadge > 0;
+              const badgeText =
+                studentReminderBadge > 99 ? '99+' : String(studentReminderBadge);
+              return (
+                <Link
+                  key={to}
+                  to={to}
+                  onClick={closeMobileMenu}
+                  title={
+                    showReminderBadge
+                      ? `${studentReminderBadge} reminder${studentReminderBadge === 1 ? '' : 's'}`
+                      : undefined
+                  }
+                  aria-label={
+                    showReminderBadge
+                      ? `${label}, ${studentReminderBadge} item${studentReminderBadge === 1 ? '' : 's'}`
+                      : undefined
+                  }
+                  className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors min-h-[44px] ${
+                    isActive ? 'bg-campus-primary text-white' : 'hover:bg-campus-primary/70'
+                  }`}
+                >
+                  <span className="relative flex shrink-0 items-center justify-center">
+                    {icon}
+                    {showReminderBadge && (
+                      <span
+                        className={`absolute -right-2.5 -top-1.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold leading-none text-white tabular-nums shadow-md ring-2 ${
+                          isActive ? 'ring-campus-primary' : 'ring-campus-dark'
+                        }`}
+                      >
+                        {badgeText}
+                      </span>
+                    )}
+                  </span>
+                  {(sidebarOpen || mobileMenuOpen) && <span className="min-w-0 flex-1 truncate">{label}</span>}
+                </Link>
+              );
+            });
+          })()}
         </nav>
         <div className="p-2 border-t border-campus-primary shrink-0">
           <div className={`px-3 py-2 flex items-center gap-3 rounded-xl bg-campus-primary/15 ${!sidebarOpen && !mobileMenuOpen ? 'justify-center' : ''}`}>
@@ -183,6 +234,7 @@ export const organiserNav = [
 
 export const studentNav = [
   { to: '/student', label: 'Events', icon: <Calendar className="w-5 h-5" /> },
+  { to: '/student/notifications', label: 'Reminders', icon: <Bell className="w-5 h-5" /> },
   { to: '/student/scan', label: 'Scan QR', icon: <QrCode className="w-5 h-5" /> },
   { to: '/student/history', label: 'History of attendance', icon: <History className="w-5 h-5" /> },
   { to: '/student/profile', label: 'Profile', icon: <User className="w-5 h-5" /> },

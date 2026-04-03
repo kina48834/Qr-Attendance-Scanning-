@@ -86,7 +86,7 @@ export function Register() {
 
   return (
     <AuthPageLayout authMode="register" tall>
-      <LandingAuthFormCard icon={UserPlus}>
+      <LandingAuthFormCard>
         <p className={landingAuthEyebrowClass}>Andres Soriano Colleges of Bislig</p>
         <h1 className="mt-1 text-xl font-bold tracking-tight text-white sm:text-2xl">Create an account</h1>
         <p className="mt-1 text-xs text-white/65 sm:text-sm">Student or teacher — campus events &amp; QR attendance.</p>
