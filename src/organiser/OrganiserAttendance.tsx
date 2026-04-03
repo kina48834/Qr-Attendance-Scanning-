@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { Fragment, useState, useEffect, useMemo, useCallback } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { useData } from '@/context/DataContext';
@@ -10,12 +10,18 @@ import { format } from 'date-fns';
 import { Users, QrCode } from 'lucide-react';
 import { PageHeader, RoleBadge } from '@/components/PageHeader';
 import { AttendanceExportButtons } from '@/components/AttendanceExportButtons';
+import {
+  enrollmentLabelForAttendanceRow,
+  enrollmentSortKeyForUser,
+  groupAttendanceRecordsByEnrollment,
+  resolveUserForAttendance,
+} from '@/utils/attendanceEnrollmentGrouping';
 
 export function OrganiserAttendance() {
   const { user } = useAuth();
   const [searchParams] = useSearchParams();
   const eventId = searchParams.get('eventId');
-  const { events, getEventAttendance, attendance: allAttendance } = useData();
+  const { events, getEventAttendance, attendance: allAttendance, users } = useData();
   const [selectedEventId, setSelectedEventId] = useState<string | null>(eventId);
   const [eventSearch, setEventSearch] = useState('');
 
@@ -45,16 +51,44 @@ export function OrganiserAttendance() {
   }, [allAttendance, events, user?.id]);
   const visibleAttendanceRows = useMemo(
     () =>
-      allMyAttendance.filter((a) =>
-        textMatchesEventSearch([a.eventTitle, a.userName, a.userEmail].join(' '), eventSearch)
-      ),
-    [allMyAttendance, eventSearch]
+      allMyAttendance.filter((a) => {
+        const u = resolveUserForAttendance(users, a);
+        const en = enrollmentLabelForAttendanceRow(u);
+        return textMatchesEventSearch([a.eventTitle, a.userName, a.userEmail, en].join(' '), eventSearch);
+      }),
+    [allMyAttendance, eventSearch, users]
+  );
+
+  const selectedEnrollmentGroups = useMemo(
+    () => groupAttendanceRecordsByEnrollment(attendance, users),
+    [attendance, users]
   );
 
   const selectedExportRecords = useMemo(
-    () => attendance.map((a) => ({ userName: a.userName, userEmail: a.userEmail, scannedAt: a.scannedAt })),
-    [attendance]
+    () =>
+      attendance.map((a) => ({
+        userName: a.userName,
+        userEmail: a.userEmail,
+        scannedAt: a.scannedAt,
+        enrollment: enrollmentLabelForAttendanceRow(resolveUserForAttendance(users, a)),
+      })),
+    [attendance, users]
   );
+
+  const visibleRowsSortedByEnrollment = useMemo(() => {
+    return [...visibleAttendanceRows]
+      .map((a) => ({
+        ...a,
+        enrollment: enrollmentLabelForAttendanceRow(resolveUserForAttendance(users, a)),
+        groupKey: enrollmentSortKeyForUser(resolveUserForAttendance(users, a)),
+      }))
+      .sort(
+        (a, b) =>
+          a.groupKey.localeCompare(b.groupKey) ||
+          a.eventTitle.localeCompare(b.eventTitle) ||
+          new Date(b.scannedAt).getTime() - new Date(a.scannedAt).getTime()
+      );
+  }, [visibleAttendanceRows, users]);
 
   const selectedExportMeta = useMemo(() => {
     if (!selectedEvent) return null;
@@ -85,8 +119,9 @@ export function OrganiserAttendance() {
         userName: a.userName,
         userEmail: a.userEmail,
         scannedAt: a.scannedAt,
+        enrollment: enrollmentLabelForAttendanceRow(resolveUserForAttendance(users, a)),
       })),
-    [visibleAttendanceRows]
+    [visibleAttendanceRows, users]
   );
 
   const onAllPdf = useCallback(async () => {
@@ -216,7 +251,7 @@ export function OrganiserAttendance() {
           </div>
           {selectedEvent ? (
             <div className="max-h-96 overflow-x-auto overflow-y-auto">
-              <table className="w-full min-w-[400px] text-sm">
+              <table className="w-full min-w-[560px] text-sm">
                 <thead className="sticky top-0 z-[1] border-b border-slate-200 bg-slate-50/95">
                   <tr>
                     <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
@@ -229,6 +264,9 @@ export function OrganiserAttendance() {
                       Email
                     </th>
                     <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
+                      Enrollment
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
                       Scanned at
                     </th>
                   </tr>
@@ -236,21 +274,40 @@ export function OrganiserAttendance() {
                 <tbody className="divide-y divide-slate-100">
                   {attendance.length === 0 ? (
                     <tr>
-                      <td colSpan={4} className="px-4 py-10 text-center text-slate-500">
+                      <td colSpan={5} className="px-4 py-10 text-center text-slate-500">
                         No scans yet for this event.
                       </td>
                     </tr>
                   ) : (
-                    attendance.map((a, i) => (
-                      <tr key={a.id} className="hover:bg-slate-50/80">
-                        <td className="px-4 py-3 tabular-nums text-slate-500">{i + 1}</td>
-                        <td className="px-4 py-3 font-medium text-slate-900">{a.userName}</td>
-                        <td className="px-4 py-3 text-slate-600">{a.userEmail}</td>
-                        <td className="px-4 py-3 tabular-nums text-slate-600">
-                          {format(new Date(a.scannedAt), 'MMM d, yyyy HH:mm')}
-                        </td>
-                      </tr>
-                    ))
+                    (() => {
+                      let seq = 0;
+                      return selectedEnrollmentGroups.map((g) => (
+                        <Fragment key={g.sortKey}>
+                          <tr className="bg-slate-100/90">
+                            <td colSpan={5} className="px-4 py-2 text-xs font-semibold uppercase tracking-wide text-slate-600">
+                              {g.label}
+                              <span className="ml-2 font-normal normal-case text-slate-500">
+                                ({g.rows.length} student{g.rows.length === 1 ? '' : 's'})
+                              </span>
+                            </td>
+                          </tr>
+                          {g.rows.map((a) => {
+                            seq += 1;
+                            return (
+                              <tr key={a.id} className="hover:bg-slate-50/80">
+                                <td className="px-4 py-3 tabular-nums text-slate-500">{seq}</td>
+                                <td className="px-4 py-3 font-medium text-slate-900">{a.userName}</td>
+                                <td className="px-4 py-3 text-slate-600">{a.userEmail}</td>
+                                <td className="px-4 py-3 text-sm text-slate-700">{g.label}</td>
+                                <td className="px-4 py-3 tabular-nums text-slate-600">
+                                  {format(new Date(a.scannedAt), 'MMM d, yyyy HH:mm')}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </Fragment>
+                      ));
+                    })()
                   )}
                 </tbody>
               </table>
@@ -277,7 +334,7 @@ export function OrganiserAttendance() {
           />
         </div>
         <div className="max-h-96 overflow-x-auto overflow-y-auto">
-          <table className="w-full min-w-[400px] text-sm">
+          <table className="w-full min-w-[720px] text-sm">
             <thead className="sticky top-0 z-[1] border-b border-slate-200 bg-slate-50/95">
               <tr>
                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
@@ -293,6 +350,9 @@ export function OrganiserAttendance() {
                   Email
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
+                  Enrollment
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
                   Scanned at
                 </th>
               </tr>
@@ -300,28 +360,47 @@ export function OrganiserAttendance() {
             <tbody className="divide-y divide-slate-100">
               {allMyAttendance.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-4 py-10 text-center text-slate-500">
+                  <td colSpan={6} className="px-4 py-10 text-center text-slate-500">
                     No scanned attendance for your events yet.
                   </td>
                 </tr>
               ) : visibleAttendanceRows.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-4 py-10 text-center text-slate-500">
+                  <td colSpan={6} className="px-4 py-10 text-center text-slate-500">
                     No rows match your search.
                   </td>
                 </tr>
               ) : (
-                visibleAttendanceRows.map((a, i) => (
-                  <tr key={a.id} className="hover:bg-slate-50/80">
-                    <td className="px-4 py-3 tabular-nums text-slate-500">{i + 1}</td>
-                    <td className="px-4 py-3 font-medium text-slate-800">{a.eventTitle}</td>
-                    <td className="px-4 py-3 font-medium text-slate-900">{a.userName}</td>
-                    <td className="px-4 py-3 text-slate-600">{a.userEmail}</td>
-                    <td className="px-4 py-3 tabular-nums text-slate-600">
-                      {format(new Date(a.scannedAt), 'MMM d, yyyy HH:mm')}
-                    </td>
-                  </tr>
-                ))
+                (() => {
+                  let seq = 0;
+                  let prevKey = '';
+                  return visibleRowsSortedByEnrollment.map((a) => {
+                    const showHeader = a.groupKey !== prevKey;
+                    prevKey = a.groupKey;
+                    seq += 1;
+                    return (
+                      <Fragment key={a.id}>
+                        {showHeader && (
+                          <tr className="bg-slate-100/90">
+                            <td colSpan={6} className="px-4 py-2 text-xs font-semibold uppercase tracking-wide text-slate-600">
+                              {a.enrollment}
+                            </td>
+                          </tr>
+                        )}
+                        <tr className="hover:bg-slate-50/80">
+                          <td className="px-4 py-3 tabular-nums text-slate-500">{seq}</td>
+                          <td className="px-4 py-3 font-medium text-slate-800">{a.eventTitle}</td>
+                          <td className="px-4 py-3 font-medium text-slate-900">{a.userName}</td>
+                          <td className="px-4 py-3 text-slate-600">{a.userEmail}</td>
+                          <td className="px-4 py-3 text-sm text-slate-700">{a.enrollment}</td>
+                          <td className="px-4 py-3 tabular-nums text-slate-600">
+                            {format(new Date(a.scannedAt), 'MMM d, yyyy HH:mm')}
+                          </td>
+                        </tr>
+                      </Fragment>
+                    );
+                  });
+                })()
               )}
             </tbody>
           </table>

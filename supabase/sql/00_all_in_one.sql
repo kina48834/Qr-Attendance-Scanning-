@@ -7,10 +7,11 @@
 --   09_comments.sql  10_auth_public_users_alignment.sql  11_api_grants.sql
 --   14_student_event_reminder_functions.sql
 --   15_academic_enrollment_columns.sql (also inlined in 07_constraints.sql)
+--   16_attendance_enrollment_view.sql
 --   12_verify_demo_users.sql  13_repair_demo_login_users.sql
 -- update this file to match (or re-paste sections).
 --
--- Order in this file: 01 → 02 → 03 → 04 → 07 → 08 → 09 → 05 → 11 → 14 → 06 → 10 → 12.
+-- Order in this file: 01 → 02 → 03 → 04 → 07 → 08 → 09 → 05 → 11 → 14 → 16 → 06 → 10 → 12.
 -- Script 13 is appended only as a commented block (run separately to repair existing DBs).
 
 -- --- 01_extensions.sql ---
@@ -458,6 +459,30 @@ as $$
 $$;
 
 grant execute on function public.student_reminders_count(text) to anon, authenticated;
+
+-- --- 16_attendance_enrollment_view.sql ---
+-- Reporting helper: attendance joined to users.academic_* (roster grouping in app).
+
+create or replace view public.v_attendance_with_user_enrollment as
+select
+  a.id as attendance_id,
+  a.event_id,
+  a.user_id,
+  a.user_name,
+  a.user_email,
+  a.scanned_at,
+  a.qr_code_data,
+  u.academic_track,
+  u.academic_year,
+  u.academic_program,
+  u.department
+from public.attendance a
+left join public.users u on u.id = a.user_id;
+
+comment on view public.v_attendance_with_user_enrollment is
+  'LEFT JOIN attendance to users for junior_high / senior_high / college roster grouping (see app attendanceEnrollmentGrouping).';
+
+grant select on public.v_attendance_with_user_enrollment to anon, authenticated;
 
 -- --- 06_seed.sql ---
 -- Seed data (teacher row must satisfy chk_users_teacher_staff_fields).

@@ -16,6 +16,7 @@ Run scripts in order in the Supabase SQL Editor, or paste **`00_all_in_one.sql`*
 | **Student Reminders** (`/student/notifications`) | Same as app: `events` + `attendance`; optional SQL `student_events_open_no_attendance`, `student_events_missed_no_attendance`, `student_reminders_count` (`14_…sql`) |
 | **Student scan (venue QR)** | `attendance`: one row per `(event_id, user_id)`; `qr_code_data` stores scanned payload |
 | **Organiser scan (student QR `ATTEND:…`)** | Same `attendance` row shape; `user_name` / `user_email` from `users` |
+| **Attendance rosters (admin / teacher / organiser)** | UI groups scans by `users.academic_track` / `academic_year` / `academic_program`; optional SQL view `v_attendance_with_user_enrollment` (`16_…sql`) |
 | **Dashboards & analytics** | Aggregates over `users`, `events`, `attendance`, `event_registrations` (computed in app) |
 
 ## File order (categorized)
@@ -33,12 +34,13 @@ Run in this exact order:
 9. `11_api_grants.sql` — `GRANT` on `public.users` / `events` / `attendance` / `event_registrations` for `anon` + `authenticated` (fixes “cannot read users” if tables were created only via SQL)
 10. `14_student_event_reminder_functions.sql` — optional RPCs for student open / missed events (same rules as Reminders page)
 11. `15_academic_enrollment_columns.sql` — `users.academic_track` / `academic_year` / `academic_program` + `chk_users_academic_shape` (also merged into `07_constraints.sql` / `00_all_in_one.sql`)
-12. `06_seed.sql` — demo users (demo student has sample college enrollment) + **one** pre-seeded **welcome** event (`evt-1`, *Welcome to Campus Connect*, organiser-owned, published) + sample attendance for the demo student; removes legacy `evt-2`…`evt-6` if present. Teacher includes `phone` so `chk_users_teacher_staff_fields` passes.
-13. `10_auth_public_users_alignment.sql` — note on seed ids vs Supabase Auth UUIDs; safe to run (`select 1`).
-14. `12_verify_demo_users.sql` — optional diagnostics: lists `public.users` with a short password preview.
-15. `13_repair_demo_login_users.sql` — **optional** one-off repair: normalizes demo emails, resets seed passwords to match `06_seed.sql`, ensures seed teacher is `approved`. Use if table-password login fails but rows exist.
+12. `16_attendance_enrollment_view.sql` — `v_attendance_with_user_enrollment` (`attendance` LEFT JOIN `users` for reporting)
+13. `06_seed.sql` — demo users (demo student has sample college enrollment) + **one** pre-seeded **welcome** event (`evt-1`, *Welcome to Campus Connect*, organiser-owned, published) + sample attendance for the demo student; removes legacy `evt-2`…`evt-6` if present. Teacher includes `phone` so `chk_users_teacher_staff_fields` passes.
+14. `10_auth_public_users_alignment.sql` — note on seed ids vs Supabase Auth UUIDs; safe to run (`select 1`).
+15. `12_verify_demo_users.sql` — optional diagnostics: lists `public.users` with a short password preview.
+16. `13_repair_demo_login_users.sql` — **optional** one-off repair: normalizes demo emails, resets seed passwords to match `06_seed.sql`, ensures seed teacher is `approved`. Use if table-password login fails but rows exist.
 
-**Merged:** `00_all_in_one.sql` inlines **01–04**, **07–09** (includes academic columns + `chk_users_academic_shape`), **05** (RLS), **11** (grants), **14** (student reminder RPCs), **06** (seed), **10** (auth note + `select 1`), **12** (verify `select`), and ends with **13** as a **commented** repair block (uncomment or run `13_repair_demo_login_users.sql` separately — do not run `13` on top of a fresh seed in the same pass).
+**Merged:** `00_all_in_one.sql` inlines **01–04**, **07–09** (includes academic columns + `chk_users_academic_shape`), **05** (RLS), **11** (grants), **14** (student reminder RPCs), **16** (attendance enrollment view), **06** (seed), **10** (auth note + `select 1`), **12** (verify `select`), and ends with **13** as a **commented** repair block (uncomment or run `13_repair_demo_login_users.sql` separately — do not run `13` on top of a fresh seed in the same pass).
 
 ### Login / register troubleshooting
 

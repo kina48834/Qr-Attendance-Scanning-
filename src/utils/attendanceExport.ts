@@ -26,6 +26,8 @@ export type AttendanceExportRecord = {
   userName: string;
   userEmail: string;
   scannedAt: string;
+  /** Junior / senior high / college line from `users.academic_*` when available */
+  enrollment?: string;
 };
 
 /** Sorted by scan time for consistent exports */
@@ -66,8 +68,14 @@ export function exportSingleEventAttendancePdf(meta: EventAttendanceExportMeta, 
 
   autoTable(doc, {
     startY: y + 4,
-    head: [['#', 'Name', 'Email', 'Scanned at']],
-    body: rows.map((r, i) => [String(i + 1), r.userName, r.userEmail, formatScanned(r.scannedAt)]),
+    head: [['#', 'Name', 'Email', 'Enrollment', 'Scanned at']],
+    body: rows.map((r, i) => [
+      String(i + 1),
+      r.userName,
+      r.userEmail,
+      r.enrollment ?? '—',
+      formatScanned(r.scannedAt),
+    ]),
     styles: { fontSize: 8, cellPadding: 2.5 },
     headStyles: { fillColor: [37, 99, 235], textColor: 255, fontStyle: 'bold' },
     alternateRowStyles: { fillColor: [248, 250, 252] },
@@ -94,8 +102,14 @@ export function exportSingleEventAttendanceXlsx(meta: EventAttendanceExportMeta,
   metaRows.push(['Generated', format(new Date(), 'MMM d, yyyy HH:mm')]);
   metaRows.push(['Total students', rows.length]);
   metaRows.push([]);
-  const tableHead: (string | number)[][] = [['#', 'Name', 'Email', 'Scanned at']];
-  const tableBody = rows.map((r, i) => [i + 1, r.userName, r.userEmail, formatScanned(r.scannedAt)]);
+  const tableHead: (string | number)[][] = [['#', 'Name', 'Email', 'Enrollment', 'Scanned at']];
+  const tableBody = rows.map((r, i) => [
+    i + 1,
+    r.userName,
+    r.userEmail,
+    r.enrollment ?? '—',
+    formatScanned(r.scannedAt),
+  ]);
   const aoa = [...header, ...metaRows, ...tableHead, ...tableBody];
   const ws = XLSX.utils.aoa_to_sheet(aoa);
   const wb = XLSX.utils.book_new();
@@ -104,17 +118,23 @@ export function exportSingleEventAttendanceXlsx(meta: EventAttendanceExportMeta,
   XLSX.writeFile(wb, `attendance_${safeFileSegment(meta.title)}.xlsx`);
 }
 
-export type MultiEventAttendanceRow = AttendanceExportRecord & { eventTitle: string };
+export type MultiEventAttendanceRow = AttendanceExportRecord & {
+  eventTitle: string;
+};
 
 export function exportMultiEventAttendancePdf(
   title: string,
   subtitle: string | undefined,
   rows: MultiEventAttendanceRow[]
 ) {
-  const sorted = [...rows].sort(
-    (a, b) =>
+  const sorted = [...rows].sort((a, b) => {
+    const ea = a.enrollment ?? '';
+    const eb = b.enrollment ?? '';
+    if (ea !== eb) return ea.localeCompare(eb);
+    return (
       a.eventTitle.localeCompare(b.eventTitle) || new Date(a.scannedAt).getTime() - new Date(b.scannedAt).getTime()
-  );
+    );
+  });
   const doc = new jsPDF({ orientation: 'landscape' });
   const margin = 14;
   let y = 16;
@@ -133,12 +153,13 @@ export function exportMultiEventAttendancePdf(
 
   autoTable(doc, {
     startY: y,
-    head: [['#', 'Event', 'Name', 'Email', 'Scanned at']],
+    head: [['#', 'Event', 'Name', 'Email', 'Enrollment', 'Scanned at']],
     body: sorted.map((r, i) => [
       String(i + 1),
       r.eventTitle,
       r.userName,
       r.userEmail,
+      r.enrollment ?? '—',
       formatScanned(r.scannedAt),
     ]),
     styles: { fontSize: 8, cellPadding: 2 },
@@ -147,9 +168,10 @@ export function exportMultiEventAttendancePdf(
     margin: { left: margin, right: margin },
     showHead: 'everyPage',
     columnStyles: {
-      1: { cellWidth: 52 },
-      2: { cellWidth: 42 },
-      3: { cellWidth: 58 },
+      1: { cellWidth: 44 },
+      2: { cellWidth: 36 },
+      3: { cellWidth: 48 },
+      4: { cellWidth: 52 },
     },
   });
 
@@ -157,17 +179,28 @@ export function exportMultiEventAttendancePdf(
 }
 
 export function exportMultiEventAttendanceXlsx(title: string, rows: MultiEventAttendanceRow[]) {
-  const sorted = [...rows].sort(
-    (a, b) =>
+  const sorted = [...rows].sort((a, b) => {
+    const ea = a.enrollment ?? '';
+    const eb = b.enrollment ?? '';
+    if (ea !== eb) return ea.localeCompare(eb);
+    return (
       a.eventTitle.localeCompare(b.eventTitle) || new Date(a.scannedAt).getTime() - new Date(b.scannedAt).getTime()
-  );
+    );
+  });
   const aoa: (string | number)[][] = [
     ['Campus Connect — ' + title],
     ['Generated', format(new Date(), 'MMM d, yyyy HH:mm')],
     ['Total rows', sorted.length],
     [],
-    ['#', 'Event', 'Name', 'Email', 'Scanned at'],
-    ...sorted.map((r, i) => [i + 1, r.eventTitle, r.userName, r.userEmail, formatScanned(r.scannedAt)]),
+    ['#', 'Event', 'Name', 'Email', 'Enrollment', 'Scanned at'],
+    ...sorted.map((r, i) => [
+      i + 1,
+      r.eventTitle,
+      r.userName,
+      r.userEmail,
+      r.enrollment ?? '—',
+      formatScanned(r.scannedAt),
+    ]),
   ];
   const ws = XLSX.utils.aoa_to_sheet(aoa);
   const wb = XLSX.utils.book_new();
