@@ -40,7 +40,7 @@ The repo includes [`vercel.json`](vercel.json) (Vite build, `dist` output, SPA f
 | Dashboard area | What it shows |
 |----------------|----------------|
 | **Authentication → Users** | Accounts created via **student/teacher registration** in the app. Supabase Auth stores the email/password here. |
-| **Table Editor → `public` → `users`** | **All** app profiles: seeded admin/organiser/teacher/student, users added in **User management**, and every registered student/teacher. Role, approval, and staff fields live here. |
+| **Table Editor → `public` → `users`** | **All** app profiles: seeded accounts, users added in **Admin → User management**, and every registered student/teacher. Role, approval, and staff fields live here. |
 
 Seeded demo accounts (`admin-1`, `org-1`, …) exist only in **`public.users`** unless you also create matching users under Authentication. The app signs them in using the password stored in `public.users` (legacy path). New registrations use **Supabase Auth** first, then insert a row in `public.users` with the same `id` as the Auth user UUID.
 

@@ -7,8 +7,8 @@ import { PageHeader, RoleBadge } from '@/components/PageHeader';
 import { eventStatusBadgeClass } from '@/utils/eventStatusStyles';
 import { AttendanceExportButtons } from '@/components/AttendanceExportButtons';
 import {
+  buildAttendanceTrackSections,
   enrollmentLabelForAttendanceRow,
-  groupAttendanceRecordsByEnrollment,
   resolveUserForAttendance,
 } from '@/utils/attendanceEnrollmentGrouping';
 
@@ -30,21 +30,33 @@ export function EventAttendanceRoster({ eventsListPath, badge }: EventAttendance
     );
   }, [eventId, attendance]);
 
-  const enrollmentGroups = useMemo(
-    () => groupAttendanceRecordsByEnrollment(rows, users),
-    [rows, users]
-  );
+  const trackSections = useMemo(() => buildAttendanceTrackSections(rows, users), [rows, users]);
 
-  const exportRecords = useMemo(
-    () =>
-      rows.map((r) => ({
-        userName: r.userName,
-        userEmail: r.userEmail,
-        scannedAt: r.scannedAt,
-        enrollment: enrollmentLabelForAttendanceRow(resolveUserForAttendance(users, r)),
-      })),
-    [rows, users]
-  );
+  const exportRecords = useMemo(() => {
+    const out: {
+      userName: string;
+      userEmail: string;
+      scannedAt: string;
+      enrollment: string;
+      rosterIndexInLevel: number;
+    }[] = [];
+    for (const sec of trackSections) {
+      let n = 0;
+      for (const sg of sec.subgroups) {
+        for (const r of sg.items) {
+          n += 1;
+          out.push({
+            userName: r.userName,
+            userEmail: r.userEmail,
+            scannedAt: r.scannedAt,
+            enrollment: enrollmentLabelForAttendanceRow(resolveUserForAttendance(users, r)),
+            rosterIndexInLevel: n,
+          });
+        }
+      }
+    }
+    return out;
+  }, [trackSections, users]);
 
   const exportMeta = useMemo(() => {
     if (!event) return null;
@@ -126,45 +138,56 @@ export function EventAttendanceRoster({ eventsListPath, badge }: EventAttendance
           </div>
         ) : (
           <div className="divide-y divide-slate-100">
-            {(() => {
-              let seq = 0;
-              return enrollmentGroups.map((g) => (
-                <Fragment key={g.sortKey}>
-                  <div className="sticky top-0 z-[1] border-b border-slate-200 bg-slate-100/95 px-4 py-2.5 sm:px-5">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-600">{g.label}</p>
-                    <p className="text-xs text-slate-500 tabular-nums">{g.rows.length} in this group</p>
+            {trackSections.map((sec) => {
+              const totalInTrack = sec.subgroups.reduce((acc, g) => acc + g.items.length, 0);
+              let seqInTrack = 0;
+              return (
+                <Fragment key={sec.trackId}>
+                  <div className="sticky top-0 z-[1] border-b border-slate-300 bg-slate-200/95 px-4 py-3 sm:px-5">
+                    <p className="text-sm font-bold uppercase tracking-wide text-slate-800">{sec.sectionTitle}</p>
+                    <p className="text-xs text-slate-600 tabular-nums mt-0.5">
+                      {totalInTrack} student{totalInTrack === 1 ? '' : 's'} — numbered 1–{totalInTrack} in this level
+                    </p>
                   </div>
-                  <ol className="divide-y divide-slate-100">
-                    {g.rows.map((r) => {
-                      seq += 1;
-                      return (
-                        <li
-                          key={r.id}
-                          className="flex flex-col gap-2 px-4 py-3.5 transition-colors hover:bg-slate-50/80 sm:flex-row sm:items-center sm:gap-4 sm:px-5"
-                        >
-                          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-campus-light text-sm font-bold tabular-nums text-campus-primary">
-                            {seq}
-                          </span>
-                          <div className="min-w-0 flex-1">
-                            <p className="flex items-center gap-2 font-semibold text-slate-900">
-                              <User className="h-4 w-4 shrink-0 text-slate-400" aria-hidden />
-                              {r.userName}
-                            </p>
-                            <p className="mt-0.5 flex items-center gap-1.5 text-sm text-slate-600">
-                              <Mail className="h-3.5 w-3.5 shrink-0 text-slate-400" aria-hidden />
-                              {r.userEmail}
-                            </p>
-                          </div>
-                          <p className="shrink-0 text-xs tabular-nums text-slate-500 sm:text-right">
-                            Scanned {format(new Date(r.scannedAt), 'MMM d, yyyy · HH:mm')}
-                          </p>
-                        </li>
-                      );
-                    })}
-                  </ol>
+                  {sec.subgroups.map((g) => (
+                    <Fragment key={g.subgroupKey}>
+                      <div className="sticky top-0 z-[1] border-b border-slate-200 bg-slate-100/95 px-4 py-2.5 sm:px-5 pl-6 sm:pl-8">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-slate-600">{g.label}</p>
+                        <p className="text-xs text-slate-500 tabular-nums">{g.items.length} in this group</p>
+                      </div>
+                      <ol className="divide-y divide-slate-100">
+                        {g.items.map((r) => {
+                          seqInTrack += 1;
+                          return (
+                            <li
+                              key={r.id}
+                              className="flex flex-col gap-2 px-4 py-3.5 transition-colors hover:bg-slate-50/80 sm:flex-row sm:items-center sm:gap-4 sm:px-5"
+                            >
+                              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-campus-light text-sm font-bold tabular-nums text-campus-primary">
+                                {seqInTrack}
+                              </span>
+                              <div className="min-w-0 flex-1">
+                                <p className="flex items-center gap-2 font-semibold text-slate-900">
+                                  <User className="h-4 w-4 shrink-0 text-slate-400" aria-hidden />
+                                  {r.userName}
+                                </p>
+                                <p className="mt-0.5 flex items-center gap-1.5 text-sm text-slate-600">
+                                  <Mail className="h-3.5 w-3.5 shrink-0 text-slate-400" aria-hidden />
+                                  {r.userEmail}
+                                </p>
+                              </div>
+                              <p className="shrink-0 text-xs tabular-nums text-slate-500 sm:text-right">
+                                Scanned {format(new Date(r.scannedAt), 'MMM d, yyyy · HH:mm')}
+                              </p>
+                            </li>
+                          );
+                        })}
+                      </ol>
+                    </Fragment>
+                  ))}
                 </Fragment>
-              ));
-            })()}
+              );
+            })}
           </div>
         )}
       </div>

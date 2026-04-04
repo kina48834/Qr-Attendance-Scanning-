@@ -1,6 +1,8 @@
 -- Performance indexes
 create index if not exists idx_users_email on public.users(email);
 create index if not exists idx_users_role on public.users(role);
+-- Roster / admin list ordering: junior_high → senior_high → college (year + program); mirrors app academicEnrollmentOrdering.ts
+create index if not exists idx_users_academic_roster on public.users(academic_track, academic_year, academic_program);
 
 create index if not exists idx_events_status on public.events(status);
 create index if not exists idx_events_start_date on public.events(start_date);

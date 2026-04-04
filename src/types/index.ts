@@ -12,7 +12,7 @@ export interface User {
   name: string;
   role: UserRole;
   avatar?: string;
-  /** Self-registered teachers start as pending until approved in User Management */
+  /** Self-registered teachers start as pending until approved by an administrator (Admin User Management) */
   approvalStatus?: TeacherApprovalStatus;
   /** Teacher / staff profile (optional for other roles) */
   phone?: string;

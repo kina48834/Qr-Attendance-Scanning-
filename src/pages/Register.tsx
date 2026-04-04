@@ -177,7 +177,7 @@ export function Register() {
               <div className={`${landingAlertWarn} mt-2`}>
                 <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-200" aria-hidden />
                 <span>
-                  Account stays <strong>pending</strong> until approved in User Management.
+                  Account stays <strong>pending</strong> until an administrator approves it in Admin → Users.
                 </span>
               </div>
             )}

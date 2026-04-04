@@ -10,7 +10,7 @@ export function teacherSignInBlockMessage(u: Pick<User, 'role' | 'approvalStatus
   if (u.role !== 'teacher') return null;
   const s = effectiveTeacherApproval(u);
   if (s === 'pending') {
-    return 'Your teacher account is pending administrator approval. You can sign in once it has been approved in User Management.';
+    return 'Your teacher account is pending administrator approval. You can sign in once an administrator has approved it in Admin → Users.';
   }
   if (s === 'rejected') {
     return 'Your teacher registration was not approved. Please contact administration if you need help.';

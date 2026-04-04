@@ -11,9 +11,9 @@ import { Users, QrCode } from 'lucide-react';
 import { PageHeader, RoleBadge } from '@/components/PageHeader';
 import { AttendanceExportButtons } from '@/components/AttendanceExportButtons';
 import {
+  buildAttendanceTrackSections,
+  buildAttendanceTrackSectionsWithEvent,
   enrollmentLabelForAttendanceRow,
-  enrollmentSortKeyForUser,
-  groupAttendanceRecordsByEnrollment,
   resolveUserForAttendance,
 } from '@/utils/attendanceEnrollmentGrouping';
 
@@ -59,36 +59,41 @@ export function OrganiserAttendance() {
     [allMyAttendance, eventSearch, users]
   );
 
-  const selectedEnrollmentGroups = useMemo(
-    () => groupAttendanceRecordsByEnrollment(attendance, users),
+  const selectedTrackSections = useMemo(
+    () => buildAttendanceTrackSections(attendance, users),
     [attendance, users]
   );
 
-  const selectedExportRecords = useMemo(
-    () =>
-      attendance.map((a) => ({
-        userName: a.userName,
-        userEmail: a.userEmail,
-        scannedAt: a.scannedAt,
-        enrollment: enrollmentLabelForAttendanceRow(resolveUserForAttendance(users, a)),
-      })),
-    [attendance, users]
-  );
+  const selectedExportRecords = useMemo(() => {
+    const out: {
+      userName: string;
+      userEmail: string;
+      scannedAt: string;
+      enrollment: string;
+      rosterIndexInLevel: number;
+    }[] = [];
+    for (const sec of selectedTrackSections) {
+      let n = 0;
+      for (const sg of sec.subgroups) {
+        for (const r of sg.items) {
+          n += 1;
+          out.push({
+            userName: r.userName,
+            userEmail: r.userEmail,
+            scannedAt: r.scannedAt,
+            enrollment: enrollmentLabelForAttendanceRow(resolveUserForAttendance(users, r)),
+            rosterIndexInLevel: n,
+          });
+        }
+      }
+    }
+    return out;
+  }, [selectedTrackSections, users]);
 
-  const visibleRowsSortedByEnrollment = useMemo(() => {
-    return [...visibleAttendanceRows]
-      .map((a) => ({
-        ...a,
-        enrollment: enrollmentLabelForAttendanceRow(resolveUserForAttendance(users, a)),
-        groupKey: enrollmentSortKeyForUser(resolveUserForAttendance(users, a)),
-      }))
-      .sort(
-        (a, b) =>
-          a.groupKey.localeCompare(b.groupKey) ||
-          a.eventTitle.localeCompare(b.eventTitle) ||
-          new Date(b.scannedAt).getTime() - new Date(a.scannedAt).getTime()
-      );
-  }, [visibleAttendanceRows, users]);
+  const allAttendanceTrackSections = useMemo(
+    () => buildAttendanceTrackSectionsWithEvent(visibleAttendanceRows, users),
+    [visibleAttendanceRows, users]
+  );
 
   const selectedExportMeta = useMemo(() => {
     if (!selectedEvent) return null;
@@ -112,17 +117,33 @@ export function OrganiserAttendance() {
     exportSingleEventAttendanceXlsx(selectedExportMeta, selectedExportRecords);
   }, [selectedExportMeta, selectedExportRecords]);
 
-  const multiExportRows = useMemo(
-    () =>
-      visibleAttendanceRows.map((a) => ({
-        eventTitle: a.eventTitle,
-        userName: a.userName,
-        userEmail: a.userEmail,
-        scannedAt: a.scannedAt,
-        enrollment: enrollmentLabelForAttendanceRow(resolveUserForAttendance(users, a)),
-      })),
-    [visibleAttendanceRows, users]
-  );
+  const multiExportRows = useMemo(() => {
+    const out: {
+      eventTitle: string;
+      userName: string;
+      userEmail: string;
+      scannedAt: string;
+      enrollment: string;
+      rosterIndexInLevel: number;
+    }[] = [];
+    for (const sec of allAttendanceTrackSections) {
+      let n = 0;
+      for (const sg of sec.subgroups) {
+        for (const a of sg.items) {
+          n += 1;
+          out.push({
+            eventTitle: a.eventTitle,
+            userName: a.userName,
+            userEmail: a.userEmail,
+            scannedAt: a.scannedAt,
+            enrollment: enrollmentLabelForAttendanceRow(resolveUserForAttendance(users, a)),
+            rosterIndexInLevel: n,
+          });
+        }
+      }
+    }
+    return out;
+  }, [allAttendanceTrackSections, users]);
 
   const onAllPdf = useCallback(async () => {
     const { exportMultiEventAttendancePdf } = await import('@/utils/attendanceExport');
@@ -279,35 +300,51 @@ export function OrganiserAttendance() {
                       </td>
                     </tr>
                   ) : (
-                    (() => {
-                      let seq = 0;
-                      return selectedEnrollmentGroups.map((g) => (
-                        <Fragment key={g.sortKey}>
-                          <tr className="bg-slate-100/90">
-                            <td colSpan={5} className="px-4 py-2 text-xs font-semibold uppercase tracking-wide text-slate-600">
-                              {g.label}
-                              <span className="ml-2 font-normal normal-case text-slate-500">
-                                ({g.rows.length} student{g.rows.length === 1 ? '' : 's'})
+                    selectedTrackSections.map((sec) => {
+                      const total = sec.subgroups.reduce((acc, g) => acc + g.items.length, 0);
+                      let seqInTrack = 0;
+                      return (
+                        <Fragment key={sec.trackId}>
+                          <tr className="bg-slate-200/90">
+                            <td colSpan={5} className="px-4 py-2.5 text-sm font-bold uppercase tracking-wide text-slate-800">
+                              {sec.sectionTitle}
+                              <span className="ml-2 font-normal normal-case text-slate-600 text-xs">
+                                ({total} student{total === 1 ? '' : 's'} — #1–{total})
                               </span>
                             </td>
                           </tr>
-                          {g.rows.map((a) => {
-                            seq += 1;
-                            return (
-                              <tr key={a.id} className="hover:bg-slate-50/80">
-                                <td className="px-4 py-3 tabular-nums text-slate-500">{seq}</td>
-                                <td className="px-4 py-3 font-medium text-slate-900">{a.userName}</td>
-                                <td className="px-4 py-3 text-slate-600">{a.userEmail}</td>
-                                <td className="px-4 py-3 text-sm text-slate-700">{g.label}</td>
-                                <td className="px-4 py-3 tabular-nums text-slate-600">
-                                  {format(new Date(a.scannedAt), 'MMM d, yyyy HH:mm')}
+                          {sec.subgroups.map((g) => (
+                            <Fragment key={g.subgroupKey}>
+                              <tr className="bg-slate-100/90">
+                                <td
+                                  colSpan={5}
+                                  className="px-4 py-2 pl-6 text-xs font-semibold uppercase tracking-wide text-slate-600"
+                                >
+                                  {g.label}
+                                  <span className="ml-2 font-normal normal-case text-slate-500">
+                                    ({g.items.length})
+                                  </span>
                                 </td>
                               </tr>
-                            );
-                          })}
+                              {g.items.map((a) => {
+                                seqInTrack += 1;
+                                return (
+                                  <tr key={a.id} className="hover:bg-slate-50/80">
+                                    <td className="px-4 py-3 tabular-nums text-slate-500">{seqInTrack}</td>
+                                    <td className="px-4 py-3 font-medium text-slate-900">{a.userName}</td>
+                                    <td className="px-4 py-3 text-slate-600">{a.userEmail}</td>
+                                    <td className="px-4 py-3 text-sm text-slate-700">{g.label}</td>
+                                    <td className="px-4 py-3 tabular-nums text-slate-600">
+                                      {format(new Date(a.scannedAt), 'MMM d, yyyy HH:mm')}
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                            </Fragment>
+                          ))}
                         </Fragment>
-                      ));
-                    })()
+                      );
+                    })
                   )}
                 </tbody>
               </table>
@@ -371,36 +408,50 @@ export function OrganiserAttendance() {
                   </td>
                 </tr>
               ) : (
-                (() => {
-                  let seq = 0;
-                  let prevKey = '';
-                  return visibleRowsSortedByEnrollment.map((a) => {
-                    const showHeader = a.groupKey !== prevKey;
-                    prevKey = a.groupKey;
-                    seq += 1;
-                    return (
-                      <Fragment key={a.id}>
-                        {showHeader && (
+                allAttendanceTrackSections.map((sec) => {
+                  const total = sec.subgroups.reduce((acc, g) => acc + g.items.length, 0);
+                  let seqInTrack = 0;
+                  return (
+                    <Fragment key={`all-${sec.trackId}`}>
+                      <tr className="bg-slate-200/90">
+                        <td colSpan={6} className="px-4 py-2.5 text-sm font-bold uppercase tracking-wide text-slate-800">
+                          {sec.sectionTitle}
+                          <span className="ml-2 font-normal normal-case text-slate-600 text-xs">
+                            ({total} row{total === 1 ? '' : 's'} — #1–{total})
+                          </span>
+                        </td>
+                      </tr>
+                      {sec.subgroups.map((g) => (
+                        <Fragment key={g.subgroupKey}>
                           <tr className="bg-slate-100/90">
-                            <td colSpan={6} className="px-4 py-2 text-xs font-semibold uppercase tracking-wide text-slate-600">
-                              {a.enrollment}
+                            <td
+                              colSpan={6}
+                              className="px-4 py-2 pl-6 text-xs font-semibold uppercase tracking-wide text-slate-600"
+                            >
+                              {g.label}
+                              <span className="ml-2 font-normal normal-case text-slate-500">({g.items.length})</span>
                             </td>
                           </tr>
-                        )}
-                        <tr className="hover:bg-slate-50/80">
-                          <td className="px-4 py-3 tabular-nums text-slate-500">{seq}</td>
-                          <td className="px-4 py-3 font-medium text-slate-800">{a.eventTitle}</td>
-                          <td className="px-4 py-3 font-medium text-slate-900">{a.userName}</td>
-                          <td className="px-4 py-3 text-slate-600">{a.userEmail}</td>
-                          <td className="px-4 py-3 text-sm text-slate-700">{a.enrollment}</td>
-                          <td className="px-4 py-3 tabular-nums text-slate-600">
-                            {format(new Date(a.scannedAt), 'MMM d, yyyy HH:mm')}
-                          </td>
-                        </tr>
-                      </Fragment>
-                    );
-                  });
-                })()
+                          {g.items.map((a) => {
+                            seqInTrack += 1;
+                            return (
+                              <tr key={a.id} className="hover:bg-slate-50/80">
+                                <td className="px-4 py-3 tabular-nums text-slate-500">{seqInTrack}</td>
+                                <td className="px-4 py-3 font-medium text-slate-800">{a.eventTitle}</td>
+                                <td className="px-4 py-3 font-medium text-slate-900">{a.userName}</td>
+                                <td className="px-4 py-3 text-slate-600">{a.userEmail}</td>
+                                <td className="px-4 py-3 text-sm text-slate-700">{g.label}</td>
+                                <td className="px-4 py-3 tabular-nums text-slate-600">
+                                  {format(new Date(a.scannedAt), 'MMM d, yyyy HH:mm')}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </Fragment>
+                      ))}
+                    </Fragment>
+                  );
+                })
               )}
             </tbody>
           </table>

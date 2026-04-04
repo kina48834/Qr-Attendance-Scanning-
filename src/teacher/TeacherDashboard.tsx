@@ -3,7 +3,7 @@ import { useData } from '@/context/DataContext';
 import { Users, Calendar, CalendarCheck, ClipboardList } from 'lucide-react';
 import { format } from 'date-fns';
 import { PageHeader, RoleBadge } from '@/components/PageHeader';
-import { StatCardLink } from '@/components/StatCard';
+import { StatCardLink, StatCardStatic } from '@/components/StatCard';
 import { eventStatusBadgeClass } from '@/utils/eventStatusStyles';
 
 export function TeacherDashboard() {
@@ -17,14 +17,13 @@ export function TeacherDashboard() {
     <div className="space-y-8">
       <PageHeader
         title="Teacher dashboard"
-        description="Manage events, users, and attendance for your classes."
+        description="Manage events and attendance for your classes."
         badge={<RoleBadge>Teacher</RoleBadge>}
       />
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCardLink
-          to="/teacher/users"
-          label="Total users"
+        <StatCardStatic
+          label="Total users (campus)"
           value={stats.totalUsers}
           icon={Users}
           iconClassName="bg-blue-500"

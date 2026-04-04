@@ -8,10 +8,10 @@ Run scripts in order in the Supabase SQL Editor, or paste **`00_all_in_one.sql`*
 |----------|------------------|
 | **Login** (`Login.tsx`) | Supabase **Auth** for students/teachers who registered in the app; legacy password check on `public.users` for seeded admin/organiser/teacher/student |
 | **Register** (`Register.tsx`) | `users` insert with `academic_track`, `academic_year`, `academic_program` + `department` summary line; teachers also `approval_status = pending`, phone, `employee_id` |
-| **Admin / Teacher user management** | `users` CRUD; approval patch updates `approval_status` |
+| **Admin user management** | `users` CRUD (`AdminUsers.tsx`); approval patch updates `approval_status` — teachers have no user management UI |
 | **Header profile card** (`AppLayout.tsx`) | `users.public_id` (random numeric user ID), `users.role`, `users.name`, `users.email` |
 | **Student / teacher profile** | `users.academic_*` + formatted `department`; run **`15_academic_enrollment_columns.sql`** on existing DBs (or full `07` / `00_all_in_one`) |
-| **Events** | `events` table; **create** via admin / organiser UIs; **teacher** `/teacher/events` manages existing events (roster, edit, delete) — no “Add event” in app |
+| **Events** | `events` table; **create** via admin / organiser / teacher UIs; past `start_date` / `end_date` blocked in app (`min` on `datetime-local`) and DB trigger `trg_events_validate_future_dates` (see `08_triggers.sql`) |
 | **Student events & search** | `events` (lists); `event_registrations` for sign-up |
 | **Student Reminders** (`/student/notifications`) | Same as app: `events` + `attendance`; optional SQL `student_events_open_no_attendance`, `student_events_missed_no_attendance`, `student_reminders_count` (`14_…sql`) |
 | **Student scan (venue QR)** | `attendance`: one row per `(event_id, user_id)`; `qr_code_data` stores scanned payload |
@@ -26,9 +26,9 @@ Run in this exact order:
 1. `01_extensions.sql` — `pgcrypto` (reserved for future hashed passwords / ids)
 2. `02_types.sql` — enums: `user_role`, `teacher_approval_status`, `event_status`
 3. `03_tables.sql` — `users`, `events`, `attendance`, `event_registrations` + FKs + named unique keys
-4. `04_indexes.sql` — query indexes
+4. `04_indexes.sql` — query indexes (includes `idx_users_academic_roster` for enrollment sort used on rosters & Admin Users)
 5. `07_constraints.sql` — **data fixes** for legacy rows, then checks (event dates, teacher staff fields, approval only for teachers). Re-run safe; fixes use placeholders `Not set` / `General` / `TBD-{id}` only where values were missing.
-6. `08_triggers.sql` — `events.updated_at` auto-maintained on update
+6. `08_triggers.sql` — `events.updated_at` auto-maintained on update; `trg_events_validate_future_dates` rejects past `start_date` / `end_date` on insert and on update while the event is not fully ended
 7. `09_comments.sql` — renames legacy `UNIQUE` constraints to `uq_attendance_event_user` / `uq_event_registrations_event_user` if needed, then `COMMENT ON` for documentation
 8. `05_rls.sql` — RLS enabled + permissive policies (anon key app; tighten for production)
 9. `11_api_grants.sql` — `GRANT` on `public.users` / `events` / `attendance` / `event_registrations` for `anon` + `authenticated` (fixes “cannot read users” if tables were created only via SQL)

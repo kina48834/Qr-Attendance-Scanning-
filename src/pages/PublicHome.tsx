@@ -16,11 +16,9 @@ import {
   Users,
 } from 'lucide-react';
 import { BrandLogo } from '@/components/BrandLogo';
+import { authPagesBackgroundStyle } from '@/constants/authHeroBackground';
 import { fetchPublicUpcomingEvents } from '@/supabase/dataService';
 import type { Event } from '@/types';
-
-const HERO_BG =
-  'https://images.unsplash.com/photo-1562774053-7019c9075dae?auto=format&fit=crop&w=2000&q=80';
 
 const EVENT_ACCENT = [
   { icon: GraduationCap, chip: 'bg-violet-500', soft: 'bg-violet-100 text-violet-700' },
@@ -65,32 +63,33 @@ export function PublicHome() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-slate-50 font-sans text-slate-800">
-      <header className="sticky top-0 z-50 border-b border-white/20 bg-white/80 backdrop-blur-md">
+    <div className="flex min-h-screen flex-col bg-landing-navy font-sans text-white">
+      <header className="sticky top-0 z-50 shrink-0 border-b border-white/10 bg-landing-navy/90 backdrop-blur-md">
         <div className="max-w-6xl mx-auto px-4 py-3 sm:py-4 flex flex-wrap items-center justify-between gap-3">
           <BrandLogo
-            variant="dark"
+            variant="light"
             size="md"
             to="/"
-            className="min-w-0"
+            className="min-w-0 [&_img]:ring-2 [&_img]:ring-white/20"
+            titleClassName="!text-white text-xl"
             subtitle="Connect • Organize • Engage"
           />
           <nav className="flex flex-wrap items-center justify-end gap-2 shrink-0">
             <Link
               to="/about"
-              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-[1.25rem] text-sm font-semibold text-campus-primary border border-campus-primary/35 bg-white hover:bg-campus-light/80 transition-colors shadow-sm"
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-[1.25rem] text-sm font-semibold text-white border border-white/35 hover:bg-white/10 transition-colors"
             >
               About
             </Link>
             <Link
               to="/register"
-              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-[1.25rem] text-sm font-semibold text-campus-primary border-2 border-campus-primary bg-white/90 hover:bg-campus-light transition-colors"
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-[1.25rem] text-sm font-semibold text-white border-2 border-white/50 hover:bg-white/10 transition-colors"
             >
               Register
             </Link>
             <Link
               to="/login"
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-[1.25rem] text-sm font-semibold bg-gradient-to-r from-campus-primary to-indigo-600 text-white shadow-md shadow-blue-500/25 hover:from-campus-secondary hover:to-indigo-700 transition-all"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-[1.25rem] text-sm font-semibold bg-landing-sky text-white shadow-lg shadow-black/20 hover:brightness-110 transition-all"
             >
               Sign in
               <ArrowRight className="w-4 h-4" strokeWidth={2.5} />
@@ -99,29 +98,20 @@ export function PublicHome() {
         </div>
       </header>
 
-      <section
-        className="relative overflow-hidden"
-        style={{
-          backgroundImage: `
-            linear-gradient(180deg, rgba(255,255,255,0.92) 0%, rgba(255,255,255,0.55) 18%, rgba(255,255,255,0.25) 45%, rgba(241,245,249,0.95) 100%),
-            url(${HERO_BG})
-          `,
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
-        }}
-      >
-        <div className="max-w-6xl mx-auto px-4 pt-10 pb-16 md:pt-14 md:pb-24 grid lg:grid-cols-[1fr_min(380px,100%)] gap-10 lg:gap-12 items-start">
+      <div className="relative flex min-h-0 flex-1 flex-col" style={authPagesBackgroundStyle()}>
+        <section className="relative overflow-hidden">
+          <div className="max-w-6xl mx-auto px-4 pt-10 pb-16 md:pt-14 md:pb-24 grid lg:grid-cols-[1fr_min(380px,100%)] gap-10 lg:gap-12 items-start">
           <div className="max-w-xl">
-            <h1 className="text-4xl sm:text-5xl md:text-[2.75rem] font-bold text-slate-900 leading-tight tracking-tight">
+            <h1 className="text-4xl sm:text-5xl md:text-[2.75rem] font-bold text-white leading-tight tracking-tight drop-shadow-sm">
               School Event{' '}
-              <span className="bg-gradient-to-r from-campus-primary via-indigo-600 to-violet-600 bg-clip-text text-transparent">
+              <span className="bg-gradient-to-r from-landing-sky via-white to-blue-200 bg-clip-text text-transparent">
                 Management
               </span>
             </h1>
-            <p className="mt-3 text-2xl sm:text-3xl md:text-[2rem] font-display text-campus-primary font-semibold">
+            <p className="mt-3 text-2xl sm:text-3xl md:text-[2rem] font-display text-landing-sky font-semibold drop-shadow-sm">
               Plan. Track. Participate.
             </p>
-            <p className="mt-5 text-slate-600 text-base sm:text-lg leading-relaxed">
+            <p className="mt-5 text-white/85 text-base sm:text-lg leading-relaxed">
               Campus Connect brings events, attendance, and analytics into one place. Organisers publish activities,
               students check in with a single QR scan, and dashboards keep everyone aligned — all backed by your live
               campus data.
@@ -129,14 +119,14 @@ export function PublicHome() {
             <div className="mt-8 flex flex-wrap gap-3">
               <Link
                 to="/login"
-                className="inline-flex items-center gap-2 px-7 py-3.5 rounded-[1.25rem] font-semibold text-white bg-gradient-to-r from-campus-primary via-blue-600 to-indigo-600 shadow-float hover:shadow-lg hover:brightness-105 transition-all text-base"
+                className="inline-flex items-center gap-2 px-7 py-3.5 rounded-[1.25rem] font-semibold text-white bg-landing-sky shadow-lg shadow-black/25 hover:brightness-110 transition-all text-base"
               >
                 Get started — Sign in
                 <ArrowRight className="w-5 h-5" strokeWidth={2.5} />
               </Link>
               <Link
                 to="/about"
-                className="inline-flex items-center gap-2 px-6 py-3.5 rounded-[1.25rem] font-semibold text-campus-primary border-2 border-campus-primary bg-white/90 hover:bg-white backdrop-blur-sm transition-colors"
+                className="inline-flex items-center gap-2 px-6 py-3.5 rounded-[1.25rem] font-semibold text-white border-2 border-white/50 bg-white/10 hover:bg-white/15 backdrop-blur-sm transition-colors"
               >
                 About ASCB
               </Link>
@@ -257,9 +247,9 @@ export function PublicHome() {
             </div>
           </div>
         </div>
-      </section>
+        </section>
 
-      <main className="max-w-6xl mx-auto px-4 py-14 md:py-20">
+      <main className="max-w-6xl mx-auto px-4 py-14 md:py-20 w-full">
         <section className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8">
           <article className="group rounded-[1.25rem] bg-white p-7 shadow-float border border-slate-100/80 hover:border-campus-primary/20 transition-all">
             <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-campus-light to-blue-100 flex items-center justify-center mb-5 shadow-inner">
@@ -350,17 +340,17 @@ export function PublicHome() {
           </div>
         </section>
 
-        <p className="mt-16 text-right font-display text-2xl sm:text-3xl text-campus-primary font-semibold pr-1 relative">
+        <p className="mt-16 text-right font-display text-2xl sm:text-3xl text-white font-semibold pr-1 relative drop-shadow-sm">
           <span className="relative inline-block">
             Your Campus, Your Events, All in One Place.
-            <span className="absolute -bottom-1 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-campus-accent/60 to-transparent rounded-full" />
+            <span className="absolute -bottom-1 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-landing-sky/70 to-transparent rounded-full" />
           </span>
         </p>
 
         <div className="mt-10 text-center">
           <Link
             to="/login"
-            className="inline-flex items-center gap-2 text-campus-primary font-semibold hover:text-campus-secondary transition-colors"
+            className="inline-flex items-center gap-2 text-landing-sky font-semibold hover:brightness-110 transition-all"
           >
             <LogIn className="w-4 h-4" />
             Sign in to your account
@@ -369,15 +359,16 @@ export function PublicHome() {
         </div>
       </main>
 
-      <footer className="border-t border-slate-200/80 bg-white/90 backdrop-blur py-10">
+      <footer className="mt-auto border-t border-white/15 bg-black/25 backdrop-blur-md py-10">
         <div className="max-w-6xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-center gap-4 text-center sm:text-left">
-          <BrandLogo variant="dark" size="xs" showTitle={false} to="/" />
-          <p className="text-sm text-slate-500 max-w-md leading-relaxed">
+          <BrandLogo variant="light" size="xs" showTitle={false} to="/" className="[&_img]:ring-1 [&_img]:ring-white/20" />
+          <p className="text-sm text-white/70 max-w-md leading-relaxed">
             Web-based school event management — events, QR attendance, and analytics for Andres Soriano Colleges of
             Bislig and beyond.
           </p>
         </div>
       </footer>
+      </div>
     </div>
   );
 }

@@ -3,6 +3,12 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useData } from '@/context/DataContext';
 import { useAuth } from '@/context/AuthContext';
 import type { Event } from '@/types';
+import {
+  toDatetimeLocalString,
+  maxDatetimeLocal,
+  eventIsFullyPast,
+  validateEventNotInPast,
+} from '@/utils/eventDatetimeLocal';
 
 export function TeacherEventForm() {
   const { events, users, addEvent, updateEvent, loading: dataLoading } = useData();
@@ -35,6 +41,17 @@ export function TeacherEventForm() {
   const [organiserId, setOrganiserId] = useState('');
   const [submitError, setSubmitError] = useState('');
 
+  const historicalEdit = Boolean(
+    isEdit && existing && eventIsFullyPast(existing.endDate)
+  );
+  const minNow = toDatetimeLocalString(new Date());
+  const startMin = historicalEdit ? undefined : minNow;
+  const endMin = historicalEdit
+    ? startDate || undefined
+    : startDate
+      ? maxDatetimeLocal(startDate, minNow)
+      : minNow;
+
   useEffect(() => {
     if (existing) {
       setTitle(existing.title);
@@ -57,6 +74,13 @@ export function TeacherEventForm() {
     });
   }, [existing, organisers, authUser?.id, authUser?.role]);
 
+  useEffect(() => {
+    if (historicalEdit || !startDate || !endDate) return;
+    const mn = toDatetimeLocalString(new Date());
+    const floor = maxDatetimeLocal(startDate, mn);
+    if (endDate < floor) setEndDate(floor);
+  }, [startDate, historicalEdit, endDate]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitError('');
@@ -65,12 +89,22 @@ export function TeacherEventForm() {
       setSubmitError(
         dataLoading
           ? 'Still loading users — wait a moment and try again.'
-          : 'Select an organiser or teacher. Add staff under User Management if the list is empty.'
+          : 'Select an organiser or teacher. Ask an administrator to add staff if the list is empty.'
       );
+      return;
+    }
+    const mode = historicalEdit ? 'historicalEdit' : 'strict';
+    const pastErr = validateEventNotInPast(startDate, endDate, mode);
+    if (pastErr) {
+      setSubmitError(pastErr);
       return;
     }
     const start = new Date(startDate).toISOString();
     const end = new Date(endDate).toISOString();
+    if (new Date(end).getTime() < new Date(start).getTime()) {
+      setSubmitError('End must be on or after start.');
+      return;
+    }
     try {
       if (isEdit && eventId) {
         await updateEvent(eventId, {
@@ -118,6 +152,11 @@ export function TeacherEventForm() {
         <p className="text-slate-600 mt-1">
           {isEdit ? 'Update event details' : 'Create a new event and assign an organiser'}
         </p>
+        {!historicalEdit && (
+          <p className="text-sm text-slate-500 mt-2">
+            Start and end cannot be in the past (calendar enforces minimum date/time).
+          </p>
+        )}
       </div>
 
       <form onSubmit={handleSubmit} className="bg-white rounded-xl border border-slate-200 shadow-sm p-6 space-y-4">
@@ -143,7 +182,9 @@ export function TeacherEventForm() {
             ))}
           </select>
           {organisers.length === 0 && !existing && (
-            <p className="text-sm text-amber-600 mt-1">No organisers or teachers yet. Add one in User Management.</p>
+            <p className="text-sm text-amber-600 mt-1">
+              No organisers or teachers yet. An administrator can add accounts in Admin → Users.
+            </p>
           )}
         </div>
         <div>
@@ -186,6 +227,7 @@ export function TeacherEventForm() {
               value={startDate}
               onChange={(e) => setStartDate(e.target.value)}
               required
+              min={startMin}
               className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-campus-primary focus:border-campus-primary"
             />
           </div>
@@ -196,6 +238,7 @@ export function TeacherEventForm() {
               value={endDate}
               onChange={(e) => setEndDate(e.target.value)}
               required
+              min={endMin}
               className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-campus-primary focus:border-campus-primary"
             />
           </div>

@@ -2,6 +2,12 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useData } from '@/context/DataContext';
 import type { Event } from '@/types';
+import {
+  toDatetimeLocalString,
+  maxDatetimeLocal,
+  eventIsFullyPast,
+  validateEventNotInPast,
+} from '@/utils/eventDatetimeLocal';
 
 export function AdminEventForm() {
   const { events, users, addEvent, updateEvent } = useData();
@@ -19,6 +25,18 @@ export function AdminEventForm() {
   const [maxAttendees, setMaxAttendees] = useState<string>('');
   const [status, setStatus] = useState<Event['status']>('draft');
   const [organiserId, setOrganiserId] = useState('');
+  const [submitError, setSubmitError] = useState('');
+
+  const historicalEdit = Boolean(
+    isEdit && existing && eventIsFullyPast(existing.endDate)
+  );
+  const minNow = toDatetimeLocalString(new Date());
+  const startMin = historicalEdit ? undefined : minNow;
+  const endMin = historicalEdit
+    ? startDate || undefined
+    : startDate
+      ? maxDatetimeLocal(startDate, minNow)
+      : minNow;
 
   useEffect(() => {
     if (existing) {
@@ -35,39 +53,61 @@ export function AdminEventForm() {
     }
   }, [existing, organisers, organiserId]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  useEffect(() => {
+    if (historicalEdit || !startDate || !endDate) return;
+    const mn = toDatetimeLocalString(new Date());
+    const floor = maxDatetimeLocal(startDate, mn);
+    if (endDate < floor) setEndDate(floor);
+  }, [startDate, historicalEdit, endDate]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setSubmitError('');
     const organiser = users.find((u) => u.id === organiserId);
     if (!organiser && !isEdit) {
       return;
     }
+    const mode = historicalEdit ? 'historicalEdit' : 'strict';
+    const pastErr = validateEventNotInPast(startDate, endDate, mode);
+    if (pastErr) {
+      setSubmitError(pastErr);
+      return;
+    }
     const start = new Date(startDate).toISOString();
     const end = new Date(endDate).toISOString();
-    if (isEdit && eventId) {
-      updateEvent(eventId, {
-        title,
-        description,
-        location,
-        startDate: start,
-        endDate: end,
-        maxAttendees: maxAttendees ? parseInt(maxAttendees, 10) : undefined,
-        status,
-        ...(organiser && { organiserId: organiser.id, organiserName: organiser.name }),
-      });
-      navigate('/admin/events');
-    } else if (organiser) {
-      addEvent({
-        title,
-        description,
-        location,
-        startDate: start,
-        endDate: end,
-        organiserId: organiser.id,
-        organiserName: organiser.name,
-        status,
-        maxAttendees: maxAttendees ? parseInt(maxAttendees, 10) : undefined,
-      });
-      navigate('/admin/events');
+    if (new Date(end).getTime() < new Date(start).getTime()) {
+      setSubmitError('End must be on or after start.');
+      return;
+    }
+    try {
+      if (isEdit && eventId) {
+        await updateEvent(eventId, {
+          title,
+          description,
+          location,
+          startDate: start,
+          endDate: end,
+          maxAttendees: maxAttendees ? parseInt(maxAttendees, 10) : undefined,
+          status,
+          ...(organiser && { organiserId: organiser.id, organiserName: organiser.name }),
+        });
+        navigate('/admin/events');
+      } else if (organiser) {
+        await addEvent({
+          title,
+          description,
+          location,
+          startDate: start,
+          endDate: end,
+          organiserId: organiser.id,
+          organiserName: organiser.name,
+          status,
+          maxAttendees: maxAttendees ? parseInt(maxAttendees, 10) : undefined,
+        });
+        navigate('/admin/events');
+      }
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : 'Could not save the event.');
     }
   };
 
@@ -78,9 +118,19 @@ export function AdminEventForm() {
         <p className="text-slate-600 mt-1">
           {isEdit ? 'Update event details' : 'Create a new event and assign an organiser'}
         </p>
+        {!historicalEdit && (
+          <p className="text-sm text-slate-500 mt-2">
+            Start and end cannot be in the past (calendar enforces minimum date/time).
+          </p>
+        )}
       </div>
 
       <form onSubmit={handleSubmit} className="bg-white rounded-xl border border-slate-200 shadow-sm p-6 space-y-4">
+        {submitError && (
+          <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+            {submitError}
+          </div>
+        )}
         <div>
           <label className="block text-sm font-medium text-slate-700 mb-1">Organiser/Teacher</label>
           <select
@@ -143,6 +193,7 @@ export function AdminEventForm() {
               value={startDate}
               onChange={(e) => setStartDate(e.target.value)}
               required
+              min={startMin}
               className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-campus-primary focus:border-campus-primary"
             />
           </div>
@@ -153,6 +204,7 @@ export function AdminEventForm() {
               value={endDate}
               onChange={(e) => setEndDate(e.target.value)}
               required
+              min={endMin}
               className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-campus-primary focus:border-campus-primary"
             />
           </div>

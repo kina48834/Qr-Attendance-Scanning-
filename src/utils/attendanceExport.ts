@@ -28,6 +28,8 @@ export type AttendanceExportRecord = {
   scannedAt: string;
   /** Junior / senior high / college line from `users.academic_*` when available */
   enrollment?: string;
+  /** When set (roster exports), # column restarts at 1 per junior / senior / college block */
+  rosterIndexInLevel?: number;
 };
 
 /** Sorted by scan time for consistent exports */
@@ -36,7 +38,9 @@ export function sortAttendanceByScanned(records: AttendanceExportRecord[]): Atte
 }
 
 export function exportSingleEventAttendancePdf(meta: EventAttendanceExportMeta, records: AttendanceExportRecord[]) {
-  const rows = sortAttendanceByScanned(records);
+  const rows = records.some((r) => r.rosterIndexInLevel != null)
+    ? [...records]
+    : sortAttendanceByScanned(records);
   const doc = new jsPDF();
   const margin = 14;
   let y = 16;
@@ -70,7 +74,7 @@ export function exportSingleEventAttendancePdf(meta: EventAttendanceExportMeta, 
     startY: y + 4,
     head: [['#', 'Name', 'Email', 'Enrollment', 'Scanned at']],
     body: rows.map((r, i) => [
-      String(i + 1),
+      String(r.rosterIndexInLevel ?? i + 1),
       r.userName,
       r.userEmail,
       r.enrollment ?? '—',
@@ -87,7 +91,9 @@ export function exportSingleEventAttendancePdf(meta: EventAttendanceExportMeta, 
 }
 
 export function exportSingleEventAttendanceXlsx(meta: EventAttendanceExportMeta, records: AttendanceExportRecord[]) {
-  const rows = sortAttendanceByScanned(records);
+  const rows = records.some((r) => r.rosterIndexInLevel != null)
+    ? [...records]
+    : sortAttendanceByScanned(records);
   const header = [['Campus Connect — attendance roster'], [], ['Event', meta.title]];
   const metaRows: (string | number)[][] = [];
   if (meta.location) metaRows.push(['Location', meta.location]);
@@ -104,7 +110,7 @@ export function exportSingleEventAttendanceXlsx(meta: EventAttendanceExportMeta,
   metaRows.push([]);
   const tableHead: (string | number)[][] = [['#', 'Name', 'Email', 'Enrollment', 'Scanned at']];
   const tableBody = rows.map((r, i) => [
-    i + 1,
+    r.rosterIndexInLevel ?? i + 1,
     r.userName,
     r.userEmail,
     r.enrollment ?? '—',
@@ -122,12 +128,11 @@ export type MultiEventAttendanceRow = AttendanceExportRecord & {
   eventTitle: string;
 };
 
-export function exportMultiEventAttendancePdf(
-  title: string,
-  subtitle: string | undefined,
-  rows: MultiEventAttendanceRow[]
-) {
-  const sorted = [...rows].sort((a, b) => {
+function sortMultiEventRows(rows: MultiEventAttendanceRow[]): MultiEventAttendanceRow[] {
+  const orderedByRoster =
+    rows.length > 0 && rows.every((r) => r.rosterIndexInLevel != null);
+  if (orderedByRoster) return [...rows];
+  return [...rows].sort((a, b) => {
     const ea = a.enrollment ?? '';
     const eb = b.enrollment ?? '';
     if (ea !== eb) return ea.localeCompare(eb);
@@ -135,6 +140,14 @@ export function exportMultiEventAttendancePdf(
       a.eventTitle.localeCompare(b.eventTitle) || new Date(a.scannedAt).getTime() - new Date(b.scannedAt).getTime()
     );
   });
+}
+
+export function exportMultiEventAttendancePdf(
+  title: string,
+  subtitle: string | undefined,
+  rows: MultiEventAttendanceRow[]
+) {
+  const sorted = sortMultiEventRows(rows);
   const doc = new jsPDF({ orientation: 'landscape' });
   const margin = 14;
   let y = 16;
@@ -155,7 +168,7 @@ export function exportMultiEventAttendancePdf(
     startY: y,
     head: [['#', 'Event', 'Name', 'Email', 'Enrollment', 'Scanned at']],
     body: sorted.map((r, i) => [
-      String(i + 1),
+      String(r.rosterIndexInLevel ?? i + 1),
       r.eventTitle,
       r.userName,
       r.userEmail,
@@ -179,14 +192,7 @@ export function exportMultiEventAttendancePdf(
 }
 
 export function exportMultiEventAttendanceXlsx(title: string, rows: MultiEventAttendanceRow[]) {
-  const sorted = [...rows].sort((a, b) => {
-    const ea = a.enrollment ?? '';
-    const eb = b.enrollment ?? '';
-    if (ea !== eb) return ea.localeCompare(eb);
-    return (
-      a.eventTitle.localeCompare(b.eventTitle) || new Date(a.scannedAt).getTime() - new Date(b.scannedAt).getTime()
-    );
-  });
+  const sorted = sortMultiEventRows(rows);
   const aoa: (string | number)[][] = [
     ['Campus Connect — ' + title],
     ['Generated', format(new Date(), 'MMM d, yyyy HH:mm')],
@@ -194,7 +200,7 @@ export function exportMultiEventAttendanceXlsx(title: string, rows: MultiEventAt
     [],
     ['#', 'Event', 'Name', 'Email', 'Enrollment', 'Scanned at'],
     ...sorted.map((r, i) => [
-      i + 1,
+      r.rosterIndexInLevel ?? i + 1,
       r.eventTitle,
       r.userName,
       r.userEmail,

@@ -2,7 +2,7 @@ import type { CSSProperties } from 'react';
 import registerLoginPhoto from '../../image/register_login.jpeg';
 
 /**
- * Full-bleed background for `/login` and `/register` only.
+ * Full-bleed background for `/login`, `/register`, and the public landing (`PublicHome` for guests).
  * Campus building photo from project `image/register_login.jpeg` (not the app logo).
  */
 export function authPagesBackgroundStyle(): CSSProperties {

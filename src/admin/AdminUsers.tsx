@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { Fragment, useMemo, useState } from 'react';
 import { useData } from '@/context/DataContext';
 import { useAuth } from '@/context/AuthContext';
 import type { UserRole, User as AppUser, AcademicTrack } from '@/types';
@@ -12,6 +12,7 @@ import {
 } from '@/constants/academicEnrollment';
 import type { AcademicEnrollmentValue } from '@/constants/academicEnrollment';
 import { formatUserAcademicLine } from '@/utils/academicProfileDisplay';
+import { buildUserTrackSections } from '@/utils/academicEnrollmentOrdering';
 import { User as UserIcon, Mail, Plus, Pencil, Trash2, Building2, Phone, IdCard } from 'lucide-react';
 import { PageHeader, RoleBadge } from '@/components/PageHeader';
 import { EventListSearchBar } from '@/components/EventListSearchBar';
@@ -98,11 +99,26 @@ export function AdminUsers() {
     academic: emptyAcademicEnrollment(),
   });
 
-  const sortedUsers = useMemo(
-    () => [...users].sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })),
-    [users]
+  const visibleUsers = useMemo(
+    () => filterUsersBySearch([...users], search),
+    [users, search]
   );
-  const visibleUsers = useMemo(() => filterUsersBySearch(sortedUsers, search), [sortedUsers, search]);
+
+  const { studentTrackSections, staffUsers } = useMemo(() => {
+    const students = visibleUsers.filter((u) => u.role === 'student');
+    const staff = visibleUsers.filter((u) => u.role !== 'student');
+    const roleRank = (r: UserRole) =>
+      r === 'administrator' ? 0 : r === 'organiser' ? 1 : r === 'teacher' ? 2 : 3;
+    staff.sort(
+      (a, b) =>
+        roleRank(a.role) - roleRank(b.role) ||
+        a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })
+    );
+    return {
+      studentTrackSections: buildUserTrackSections(students),
+      staffUsers: staff,
+    };
+  }, [visibleUsers]);
 
   const resetForm = () => {
     setForm({
@@ -432,7 +448,7 @@ export function AdminUsers() {
         </div>
       )}
 
-      {sortedUsers.length > 0 && (
+      {users.length > 0 && (
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <EventListSearchBar
             id="admin-users-search"
@@ -443,33 +459,150 @@ export function AdminUsers() {
             placeholder="Search by name, email, role, or teacher details…"
           />
           <p className="text-xs text-slate-500 tabular-nums">
-            {visibleUsers.length} of {sortedUsers.length} user{sortedUsers.length === 1 ? '' : 's'}
+            {visibleUsers.length} of {users.length} user{users.length === 1 ? '' : 's'}
           </p>
         </div>
       )}
 
       <div className="overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[720px] table-fixed text-sm">
+          <table className="w-full min-w-[760px] table-fixed text-sm">
             <thead>
               <tr className="border-b border-slate-200 bg-slate-50/95">
-                <th className="w-[28%] px-4 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
+                <th className="w-[3.25rem] px-2 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
+                  #
+                </th>
+                <th className="w-[26%] px-4 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
                   User
                 </th>
-                <th className="w-[14%] px-4 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
+                <th className="w-[13%] px-4 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
                   Role
                 </th>
-                <th className="w-[38%] px-4 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
+                <th className="w-[36%] px-4 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
                   Profile &amp; staff
                 </th>
-                <th className="w-[20%] min-w-[8.5rem] px-4 py-3.5 text-right text-xs font-semibold uppercase tracking-wider text-slate-500">
+                <th className="w-[18%] min-w-[8.5rem] px-4 py-3.5 text-right text-xs font-semibold uppercase tracking-wider text-slate-500">
                   Actions
                 </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {visibleUsers.map((u) => (
-                <tr key={u.id} className="transition-colors hover:bg-slate-50/80">
+              {studentTrackSections.map((sec) => {
+                const total = sec.subgroups.reduce((acc, g) => acc + g.items.length, 0);
+                let numInTrack = 0;
+                return (
+                  <Fragment key={`stu-${sec.trackId}`}>
+                    <tr className="bg-slate-200/90">
+                      <td
+                        colSpan={5}
+                        className="px-4 py-2.5 text-sm font-bold uppercase tracking-wide text-slate-800"
+                      >
+                        Students — {sec.sectionTitle}
+                        <span className="ml-2 font-normal normal-case text-slate-600 text-xs">
+                          ({total} user{total === 1 ? '' : 's'} — #1–{total})
+                        </span>
+                      </td>
+                    </tr>
+                    {sec.subgroups.map((g) => (
+                      <Fragment key={g.subgroupKey}>
+                        <tr className="bg-slate-100/90">
+                          <td
+                            colSpan={5}
+                            className="px-4 py-2 pl-8 text-xs font-semibold uppercase tracking-wide text-slate-600"
+                          >
+                            {g.label}
+                            <span className="ml-2 font-normal normal-case text-slate-500">({g.items.length})</span>
+                          </td>
+                        </tr>
+                        {g.items.map((u) => {
+                          numInTrack += 1;
+                          return (
+                            <UserManagementRow
+                              key={u.id}
+                              u={u}
+                              rowNum={numInTrack}
+                              currentUserId={currentUser?.id}
+                              onEdit={handleEdit}
+                              onDelete={handleDelete}
+                              patchTeacherApproval={patchTeacherApproval}
+                            />
+                          );
+                        })}
+                      </Fragment>
+                    ))}
+                  </Fragment>
+                );
+              })}
+              {staffUsers.length > 0 && (
+                <>
+                  <tr className="bg-slate-200/90">
+                    <td
+                      colSpan={5}
+                      className="px-4 py-2.5 text-sm font-bold uppercase tracking-wide text-slate-800"
+                    >
+                      Staff — administrators, organisers &amp; teachers
+                      <span className="ml-2 font-normal normal-case text-slate-600 text-xs">
+                        ({staffUsers.length} — #1–{staffUsers.length})
+                      </span>
+                    </td>
+                  </tr>
+                  {staffUsers.map((u, idx) => (
+                    <UserManagementRow
+                      key={u.id}
+                      u={u}
+                      rowNum={idx + 1}
+                      currentUserId={currentUser?.id}
+                      onEdit={handleEdit}
+                      onDelete={handleDelete}
+                      patchTeacherApproval={patchTeacherApproval}
+                    />
+                  ))}
+                </>
+              )}
+            </tbody>
+          </table>
+        </div>
+        {users.length === 0 && (
+          <div className="p-14 text-center text-slate-500">
+            <p className="font-medium text-slate-700">No users yet</p>
+            <p className="mt-1 text-sm">Add users or run the database seed.</p>
+            <button
+              type="button"
+              onClick={() => setShowForm(true)}
+              className="mt-4 inline-flex items-center justify-center rounded-xl bg-campus-primary px-4 py-2 text-sm font-semibold text-white hover:bg-campus-secondary"
+            >
+              Add user
+            </button>
+          </div>
+        )}
+        {users.length > 0 && visibleUsers.length === 0 && (
+          <div className="p-12 text-center text-sm text-slate-500">No users match your search.</div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+type UserManagementRowProps = {
+  u: AppUser;
+  rowNum: number;
+  currentUserId: string | undefined;
+  onEdit: (u: AppUser) => void;
+  onDelete: (id: string, email: string) => void;
+  patchTeacherApproval: (id: string, status: 'approved' | 'rejected') => void;
+};
+
+function UserManagementRow({
+  u,
+  rowNum,
+  currentUserId,
+  onEdit,
+  onDelete,
+  patchTeacherApproval,
+}: UserManagementRowProps) {
+  return (
+                <tr className="transition-colors hover:bg-slate-50/80">
+                  <td className="px-2 py-4 align-top tabular-nums text-slate-500 font-medium">{rowNum}</td>
                   <td className="px-4 py-4 align-top">
                     <div className="flex items-start gap-2.5">
                       <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-500">
@@ -565,7 +698,7 @@ export function AdminUsers() {
                     <div className="flex flex-wrap items-center justify-end gap-1.5">
                       <button
                         type="button"
-                        onClick={() => handleEdit(u)}
+                        onClick={() => onEdit(u)}
                         className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
                         title="Edit"
                       >
@@ -574,8 +707,8 @@ export function AdminUsers() {
                       </button>
                       <button
                         type="button"
-                        onClick={() => handleDelete(u.id, u.email)}
-                        disabled={u.id === currentUser?.id}
+                        onClick={() => onDelete(u.id, u.email)}
+                        disabled={u.id === currentUserId}
                         className="inline-flex items-center gap-1 rounded-lg border border-red-200 bg-white px-2.5 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 disabled:pointer-events-none disabled:opacity-40"
                         title="Delete"
                       >
@@ -584,27 +717,5 @@ export function AdminUsers() {
                     </div>
                   </td>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        {sortedUsers.length === 0 && (
-          <div className="p-14 text-center text-slate-500">
-            <p className="font-medium text-slate-700">No users yet</p>
-            <p className="mt-1 text-sm">Add users or run the database seed.</p>
-            <button
-              type="button"
-              onClick={() => setShowForm(true)}
-              className="mt-4 inline-flex items-center justify-center rounded-xl bg-campus-primary px-4 py-2 text-sm font-semibold text-white hover:bg-campus-secondary"
-            >
-              Add user
-            </button>
-          </div>
-        )}
-        {sortedUsers.length > 0 && visibleUsers.length === 0 && (
-          <div className="p-12 text-center text-sm text-slate-500">No users match your search.</div>
-        )}
-      </div>
-    </div>
   );
 }

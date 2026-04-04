@@ -115,6 +115,7 @@ create table if not exists public.event_registrations (
 
 create index if not exists idx_users_email on public.users(email);
 create index if not exists idx_users_role on public.users(role);
+create index if not exists idx_users_academic_roster on public.users(academic_track, academic_year, academic_program);
 create index if not exists idx_events_status on public.events(status);
 create index if not exists idx_events_start_date on public.events(start_date);
 create index if not exists idx_events_organiser_id on public.events(organiser_id);
@@ -244,6 +245,45 @@ alter table public.users
   );
 
 -- --- 08_triggers.sql ---
+-- Reject past start/end on events (forms + API). Fully ended rows skip update checks.
+
+create or replace function public.events_validate_start_end_not_in_past()
+returns trigger
+language plpgsql
+as $f$
+begin
+  if tg_op = 'INSERT' then
+    if new.start_date < now() then
+      raise exception 'events.start_date cannot be in the past';
+    end if;
+    if new.end_date < now() then
+      raise exception 'events.end_date cannot be in the past';
+    end if;
+    return new;
+  end if;
+
+  if tg_op = 'UPDATE' then
+    if old.end_date >= now() then
+      if new.start_date is distinct from old.start_date and new.start_date < now() then
+        raise exception 'events.start_date cannot be moved to the past';
+      end if;
+      if new.end_date is distinct from old.end_date and new.end_date < now() then
+        raise exception 'events.end_date cannot be moved to the past';
+      end if;
+    end if;
+    return new;
+  end if;
+
+  return new;
+end;
+$f$;
+
+drop trigger if exists trg_events_validate_future_dates on public.events;
+create trigger trg_events_validate_future_dates
+  before insert or update on public.events
+  for each row
+  execute function public.events_validate_start_end_not_in_past();
+
 -- Keep events.updated_at in sync on every row update.
 
 create or replace function public.set_updated_at()
@@ -333,7 +373,7 @@ begin
 end $$;
 
 comment on table public.users is
-  'Accounts for Login/Register, Admin User Management, teacher approval, organiser/teacher as event owners.';
+  'Accounts for Login/Register. CRUD and teacher approval are done in the administrator User Management UI only — the teacher role has no user management screen. Organisers/teachers own events.';
 comment on column public.users.id is 'Stable id used in session, URLs, QR payloads (ATTEND:userId:eventId).';
 comment on column public.users.public_id is 'Random 6-digit profile/user ID shown in app header.';
 comment on column public.users.email is 'Login identifier; unique.';
@@ -342,16 +382,18 @@ comment on column public.users.role is 'administrator | organiser | student | te
 comment on column public.users.approval_status is 'Teacher only: pending (self-register), approved/rejected (admin).';
 comment on column public.users.phone is 'Teacher profile; required when role = teacher.';
 comment on column public.users.department is 'Summary line for lists/search; from school enrollment or legacy teacher text.';
-comment on column public.users.academic_track is 'junior_high | senior_high | college — Register.tsx.';
-comment on column public.users.academic_year is 'JH 1–4, SH 11–12, college 1–4.';
-comment on column public.users.academic_program is 'College program when track = college; else null.';
+comment on column public.users.academic_track is 'junior_high | senior_high | college — Register.tsx. Rosters & Admin Users: JH (years 1–4), SH (11–12), college (years 1–4 + program).';
+comment on column public.users.academic_year is 'JH 1–4, SH 11–12, college 1–4; idx_users_academic_roster matches app ordering.';
+comment on column public.users.academic_program is 'College program when track = college; else null. Sub-sorts within college year on rosters.';
 comment on column public.users.employee_id is 'Teacher staff ID; required when role = teacher.';
 comment on column public.users.office_location is 'Optional teacher office/room.';
 comment on column public.users.avatar is 'Optional profile image URL (reserved for future UI).';
 comment on table public.events is
-  'Events browsed by students. Inserts: admin / organiser (app). Teachers manage existing events (edit, roster, delete) but the teacher Events UI does not add new rows — align with Campus Connect teacher routes.';
+  'Events browsed by students. Inserts: admin / organiser (app). Teachers manage existing events (edit, roster, delete) but do not manage user accounts; the teacher Events UI does not add new rows — align with Campus Connect teacher routes.';
 comment on column public.events.organiser_id is 'FK to users; organiser or teacher (AdminEventForm).';
 comment on column public.events.organiser_name is 'Denormalised display name for lists and search.';
+comment on column public.events.start_date is 'Must be >= now() on insert; updates blocked from moving into the past while the event is not fully ended (trigger trg_events_validate_future_dates).';
+comment on column public.events.end_date is 'Must be >= start_date (chk_events_end_after_start) and >= now() on insert; same update rule as start_date when the event has not fully ended.';
 comment on column public.events.status is 'draft | published | completed | cancelled — gates student scan.';
 comment on column public.events.qr_code_data is 'Event QR payload; StudentScan / eventMatchesScannedValue.';
 comment on column public.events.max_attendees is 'Optional cap from event forms.';
@@ -480,7 +522,7 @@ from public.attendance a
 left join public.users u on u.id = a.user_id;
 
 comment on view public.v_attendance_with_user_enrollment is
-  'LEFT JOIN attendance to users for junior_high / senior_high / college roster grouping (see app attendanceEnrollmentGrouping).';
+  'LEFT JOIN attendance to users for roster grouping: JH (years 1–4), SH (11–12), college (years 1–4 + program); per-level numbering in app (buildAttendanceTrackSections).';
 
 grant select on public.v_attendance_with_user_enrollment to anon, authenticated;
 
@@ -540,8 +582,8 @@ values
     'Welcome to Campus Connect',
     'Your welcome event — already in the system when Campus Connect starts. Meet the team, learn how to browse events, and scan the venue QR here to practice attendance. Teachers and admins can open this event to see who checked in.',
     'Main Hall',
-    '2026-06-15T09:00:00Z',
-    '2026-06-15T13:00:00Z',
+    date_trunc('minute', now() + interval '30 days'),
+    date_trunc('minute', now() + interval '30 days' + interval '4 hours'),
     'org-1',
     'Organiser',
     'published',
