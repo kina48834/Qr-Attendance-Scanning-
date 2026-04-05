@@ -9,10 +9,10 @@ export const ACADEMIC_TRACK_OPTIONS: { value: AcademicTrack; label: string }[] =
 ];
 
 export const JUNIOR_HIGH_YEAR_OPTIONS = [
-  { value: '1', label: '1st — First year' },
-  { value: '2', label: '2nd — Second year' },
-  { value: '3', label: '3rd — Third year' },
-  { value: '4', label: '4th — Fourth year' },
+  { value: '1', label: 'Grade 7' },
+  { value: '2', label: 'Grade 8' },
+  { value: '3', label: 'Grade 9' },
+  { value: '4', label: 'Grade 10' },
 ] as const;
 
 export const SENIOR_HIGH_YEAR_OPTIONS = [
@@ -73,7 +73,7 @@ export function validateAcademicEnrollment(v: AcademicEnrollmentValue): string |
   if (!v.track) return 'Select a school level (junior high, senior high, or college).';
   if (!v.year) return 'Select a year or grade level.';
   if (v.track === 'junior_high' && !JUNIOR_HIGH_YEAR_OPTIONS.some((o) => o.value === v.year)) {
-    return 'Choose a valid junior high year.';
+    return 'Choose a valid junior high grade (Grade 7–10).';
   }
   if (v.track === 'senior_high' && !SENIOR_HIGH_YEAR_OPTIONS.some((o) => o.value === v.year)) {
     return 'Choose Grade 11 or Grade 12.';

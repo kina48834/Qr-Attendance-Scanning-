@@ -27,7 +27,7 @@ export function enrollmentTrackId(
 }
 
 /**
- * Sort key for sub-groups: JH years 1–4, SH 11–12, college year 1–4 + program (for stable ordering).
+ * Sort key for sub-groups: JH stored 1–4 (UI Grade 7–10), SH 11–12, college year 1–4 + program (for stable ordering).
  */
 export function enrollmentSubgroupSortKey(
   u: Pick<User, 'academicTrack' | 'academicYear' | 'academicProgram'> | undefined
@@ -92,7 +92,7 @@ function partitionIntoSubgroups<T>(
     .map(([subgroupKey, v]) => ({ subgroupKey, label: v.label, items: v.rows }));
 }
 
-/** Group users (typically students) into JH → SH → college → unspecified with year/program sub-headers. */
+/** Group users (typically students) into junior high → senior high → college → unspecified with grade/year/program sub-headers. */
 export function buildUserTrackSections(users: User[]): EnrollmentTrackSection<User>[] {
   const sorted = [...users].sort(compareUsersBySchoolEnrollment);
   const byTrack = new Map<EnrollmentTrackId, User[]>();

@@ -7,7 +7,7 @@ Run scripts in order in the Supabase SQL Editor, or paste **`00_all_in_one.sql`*
 | App area | Tables / objects |
 |----------|------------------|
 | **Login** (`Login.tsx`) | Supabase **Auth** for students/teachers who registered in the app; legacy password check on `public.users` for seeded admin/organiser/teacher/student |
-| **Register** (`Register.tsx`) | `users` insert with `academic_track`, `academic_year`, `academic_program` (incl. BS Accountancy) + `department` summary; JH/college years labeled 1st–4th + First–Fourth year in UI; SH stays Grade 11/12 |
+| **Register** (`Register.tsx`) | `users` insert with `academic_track`, `academic_year`, `academic_program` (incl. BS Accountancy) + `department` summary; JH UI Grade 7–10 (stored `academic_year` 1–4); college 1st–Fourth year; SH Grade 11/12 |
 | **Admin user management** | `users` CRUD (`AdminUsers.tsx`); approval patch updates `approval_status` — teachers have no user management UI |
 | **Header profile card** (`AppLayout.tsx`) | `users.public_id` (random numeric user ID), `users.role`, `users.name`, `users.email` |
 | **Student / teacher profile** | `users.academic_*` + formatted `department`; run **`15_academic_enrollment_columns.sql`** on existing DBs (or full `07` / `00_all_in_one`) |

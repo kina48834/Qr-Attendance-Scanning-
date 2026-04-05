@@ -32,7 +32,7 @@ export function enrollmentLabelForAttendanceRow(u: User | undefined): string {
 }
 
 /**
- * Junior high (years 1–4) → senior high (11–12) → college (years 1–4 by program) → not on file;
+ * Junior high (stored years 1–4, UI Grade 7–10) → senior high (11–12) → college (years 1–4 by program) → not on file;
  * each track has year/program sub-groups. Row order within subgroup: scan time.
  */
 export function buildAttendanceTrackSections(
