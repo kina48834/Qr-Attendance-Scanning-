@@ -7,8 +7,8 @@ Run scripts in order in the Supabase SQL Editor, or paste **`00_all_in_one.sql`*
 | App area | Tables / objects |
 |----------|------------------|
 | **Login** (`Login.tsx`) | Supabase **Auth** for students/teachers who registered in the app; legacy password check on `public.users` for seeded admin/organiser/teacher/student |
-| **Register** (`Register.tsx`) | `users` insert with `academic_track`, `academic_year`, `academic_program` (incl. BS Accountancy) + `department` summary; JH UI Grade 7–10 (stored `academic_year` 1–4); college 1st–Fourth year; SH Grade 11/12 |
-| **Admin user management** | `users` CRUD (`AdminUsers.tsx`); approval patch updates `approval_status` — teachers have no user management UI |
+| **Register** (`Register.tsx`) | `users` insert with `academic_track`, `academic_year`, `academic_program` (incl. BS Accountancy) + `department` summary; school level & year via buttons (JH G7–10, SH G11–12, college years); program dropdown |
+| **Admin user management** | `users` CRUD (`AdminUsers.tsx`); enrollment fields match Register (button school level & year); approval patch for teachers |
 | **Header profile card** (`AppLayout.tsx`) | `users.public_id` (random numeric user ID), `users.role`, `users.name`, `users.email` |
 | **Student / teacher profile** | `users.academic_*` + formatted `department`; run **`15_academic_enrollment_columns.sql`** on existing DBs (or full `07` / `00_all_in_one`) |
 | **Events** | `events` table; **create** via admin / organiser / teacher UIs; past `start_date` / `end_date` blocked in app (`min` on `datetime-local`) and DB trigger `trg_events_validate_future_dates` (see `08_triggers.sql`) |
@@ -16,7 +16,7 @@ Run scripts in order in the Supabase SQL Editor, or paste **`00_all_in_one.sql`*
 | **Student Reminders** (`/student/notifications`) | Same as app: `events` + `attendance`; optional SQL `student_events_open_no_attendance`, `student_events_missed_no_attendance`, `student_reminders_count` (`14_…sql`) |
 | **Student scan (venue QR)** | `attendance`: one row per `(event_id, user_id)`; `qr_code_data` stores scanned payload |
 | **Organiser scan (student QR `ATTEND:…`)** | Same `attendance` row shape; `user_name` / `user_email` from `users` |
-| **Attendance rosters (admin / teacher / organiser)** | Grouped by `users.academic_track` / `academic_year` / `academic_program`; header exports all levels; each JH/SH/college block has its own PDF/Excel; optional view `v_attendance_with_user_enrollment` (`16_…sql`) |
+| **Attendance rosters (admin / teacher / organiser)** | Grouped by `users.academic_track` / `academic_year` / `academic_program`; PDF/Excel include **Year level** column from `academic_*`; header exports all levels; per-level exports; optional view `v_attendance_with_user_enrollment` (`16_…sql`) |
 | **Dashboards & analytics** | Aggregates over `users`, `events`, `attendance`, `event_registrations` (computed in app) |
 
 ## File order (categorized)

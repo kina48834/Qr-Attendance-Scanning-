@@ -1,4 +1,5 @@
 import type { AttendanceRecord, User } from '@/types';
+import { formatAcademicYearLevelLabel } from '@/constants/academicEnrollment';
 import type { AttendanceExportRecord, MultiEventAttendanceRow } from '@/utils/attendanceExport';
 import { formatUserAcademicLine } from '@/utils/academicProfileDisplay';
 import {
@@ -143,11 +144,13 @@ export function recordsForAttendanceTrackSection<T extends AttendanceRecord>(
   for (const sg of section.subgroups) {
     for (const r of sg.items) {
       n += 1;
+      const u = resolveUserForAttendance(users, r as AttendanceRecord);
       out.push({
         userName: r.userName,
         userEmail: r.userEmail,
         scannedAt: r.scannedAt,
-        enrollment: enrollmentLabelForAttendanceRow(resolveUserForAttendance(users, r as AttendanceRecord)),
+        yearLevel: formatAcademicYearLevelLabel(u ?? {}),
+        enrollment: enrollmentLabelForAttendanceRow(u),
         rosterIndexInLevel: n,
       });
     }
@@ -165,12 +168,14 @@ export function multiEventRowsForAttendanceTrackSection(
   for (const sg of section.subgroups) {
     for (const r of sg.items) {
       n += 1;
+      const u = resolveUserForAttendance(users, r);
       out.push({
         eventTitle: r.eventTitle,
         userName: r.userName,
         userEmail: r.userEmail,
         scannedAt: r.scannedAt,
-        enrollment: enrollmentLabelForAttendanceRow(resolveUserForAttendance(users, r)),
+        yearLevel: formatAcademicYearLevelLabel(u ?? {}),
+        enrollment: enrollmentLabelForAttendanceRow(u),
         rosterIndexInLevel: n,
       });
     }

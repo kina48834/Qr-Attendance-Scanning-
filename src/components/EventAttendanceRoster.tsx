@@ -7,6 +7,7 @@ import { PageHeader, RoleBadge } from '@/components/PageHeader';
 import { eventStatusBadgeClass } from '@/utils/eventStatusStyles';
 import { AttendanceExportButtons } from '@/components/AttendanceExportButtons';
 import { isAttendanceExportTrackScope, type AttendanceExportTrackScope } from '@/utils/academicEnrollmentOrdering';
+import { formatAcademicYearLevelLabel } from '@/constants/academicEnrollment';
 import {
   buildAttendanceTrackSections,
   enrollmentLabelForAttendanceRow,
@@ -39,6 +40,7 @@ export function EventAttendanceRoster({ eventsListPath, badge }: EventAttendance
       userName: string;
       userEmail: string;
       scannedAt: string;
+      yearLevel: string;
       enrollment: string;
       rosterIndexInLevel: number;
     }[] = [];
@@ -47,11 +49,13 @@ export function EventAttendanceRoster({ eventsListPath, badge }: EventAttendance
       for (const sg of sec.subgroups) {
         for (const r of sg.items) {
           n += 1;
+          const u = resolveUserForAttendance(users, r);
           out.push({
             userName: r.userName,
             userEmail: r.userEmail,
             scannedAt: r.scannedAt,
-            enrollment: enrollmentLabelForAttendanceRow(resolveUserForAttendance(users, r)),
+            yearLevel: formatAcademicYearLevelLabel(u ?? {}),
+            enrollment: enrollmentLabelForAttendanceRow(u),
             rosterIndexInLevel: n,
           });
         }

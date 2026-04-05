@@ -35,6 +35,8 @@ export type AttendanceExportRecord = {
   userName: string;
   userEmail: string;
   scannedAt: string;
+  /** Grade 7–10, Grade 11/12, or college year label from `users.academic_*` */
+  yearLevel?: string;
   /** Junior / senior high / college line from `users.academic_*` when available */
   enrollment?: string;
   /** When set (roster exports), # column restarts at 1 per junior / senior / college block */
@@ -82,15 +84,16 @@ export function exportSingleEventAttendancePdf(meta: EventAttendanceExportMeta, 
 
   autoTable(doc, {
     startY: y + 4,
-    head: [['#', 'Name', 'Email', 'Enrollment', 'Scanned at']],
+    head: [['#', 'Name', 'Email', 'Year level', 'Enrollment', 'Scanned at']],
     body: rows.map((r, i) => [
       String(r.rosterIndexInLevel ?? i + 1),
       r.userName,
       r.userEmail,
+      r.yearLevel ?? '—',
       r.enrollment ?? '—',
       formatScanned(r.scannedAt),
     ]),
-    styles: { fontSize: 8, cellPadding: 2.5 },
+    styles: { fontSize: 7.5, cellPadding: 2 },
     headStyles: { fillColor: [37, 99, 235], textColor: 255, fontStyle: 'bold' },
     alternateRowStyles: { fillColor: [248, 250, 252] },
     margin: { left: margin, right: margin },
@@ -120,11 +123,12 @@ export function exportSingleEventAttendanceXlsx(meta: EventAttendanceExportMeta,
   metaRows.push(['Generated', format(new Date(), 'MMM d, yyyy HH:mm')]);
   metaRows.push(['Total students', rows.length]);
   metaRows.push([]);
-  const tableHead: (string | number)[][] = [['#', 'Name', 'Email', 'Enrollment', 'Scanned at']];
+  const tableHead: (string | number)[][] = [['#', 'Name', 'Email', 'Year level', 'Enrollment', 'Scanned at']];
   const tableBody = rows.map((r, i) => [
     r.rosterIndexInLevel ?? i + 1,
     r.userName,
     r.userEmail,
+    r.yearLevel ?? '—',
     r.enrollment ?? '—',
     formatScanned(r.scannedAt),
   ]);
@@ -184,25 +188,27 @@ export function exportMultiEventAttendancePdf(
 
   autoTable(doc, {
     startY: y,
-    head: [['#', 'Event', 'Name', 'Email', 'Enrollment', 'Scanned at']],
+    head: [['#', 'Event', 'Name', 'Email', 'Year level', 'Enrollment', 'Scanned at']],
     body: sorted.map((r, i) => [
       String(r.rosterIndexInLevel ?? i + 1),
       r.eventTitle,
       r.userName,
       r.userEmail,
+      r.yearLevel ?? '—',
       r.enrollment ?? '—',
       formatScanned(r.scannedAt),
     ]),
-    styles: { fontSize: 8, cellPadding: 2 },
+    styles: { fontSize: 7, cellPadding: 1.8 },
     headStyles: { fillColor: [37, 99, 235], textColor: 255, fontStyle: 'bold' },
     alternateRowStyles: { fillColor: [248, 250, 252] },
     margin: { left: margin, right: margin },
     showHead: 'everyPage',
     columnStyles: {
-      1: { cellWidth: 44 },
-      2: { cellWidth: 36 },
-      3: { cellWidth: 48 },
-      4: { cellWidth: 52 },
+      1: { cellWidth: 38 },
+      2: { cellWidth: 30 },
+      3: { cellWidth: 42 },
+      4: { cellWidth: 28 },
+      5: { cellWidth: 44 },
     },
   });
 
@@ -224,12 +230,13 @@ export function exportMultiEventAttendanceXlsx(
   headMeta.push(['Total rows', sorted.length], []);
   const aoa: (string | number)[][] = [
     ...headMeta,
-    ['#', 'Event', 'Name', 'Email', 'Enrollment', 'Scanned at'],
+    ['#', 'Event', 'Name', 'Email', 'Year level', 'Enrollment', 'Scanned at'],
     ...sorted.map((r, i) => [
       r.rosterIndexInLevel ?? i + 1,
       r.eventTitle,
       r.userName,
       r.userEmail,
+      r.yearLevel ?? '—',
       r.enrollment ?? '—',
       formatScanned(r.scannedAt),
     ]),

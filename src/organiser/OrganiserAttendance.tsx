@@ -10,6 +10,7 @@ import { format } from 'date-fns';
 import { Users, QrCode } from 'lucide-react';
 import { PageHeader, RoleBadge } from '@/components/PageHeader';
 import { AttendanceExportButtons } from '@/components/AttendanceExportButtons';
+import { formatAcademicYearLevelLabel } from '@/constants/academicEnrollment';
 import {
   isAttendanceExportTrackScope,
   type AttendanceExportTrackScope,
@@ -75,6 +76,7 @@ export function OrganiserAttendance() {
       userName: string;
       userEmail: string;
       scannedAt: string;
+      yearLevel: string;
       enrollment: string;
       rosterIndexInLevel: number;
     }[] = [];
@@ -83,11 +85,13 @@ export function OrganiserAttendance() {
       for (const sg of sec.subgroups) {
         for (const r of sg.items) {
           n += 1;
+          const u = resolveUserForAttendance(users, r);
           out.push({
             userName: r.userName,
             userEmail: r.userEmail,
             scannedAt: r.scannedAt,
-            enrollment: enrollmentLabelForAttendanceRow(resolveUserForAttendance(users, r)),
+            yearLevel: formatAcademicYearLevelLabel(u ?? {}),
+            enrollment: enrollmentLabelForAttendanceRow(u),
             rosterIndexInLevel: n,
           });
         }
@@ -170,6 +174,7 @@ export function OrganiserAttendance() {
       userName: string;
       userEmail: string;
       scannedAt: string;
+      yearLevel: string;
       enrollment: string;
       rosterIndexInLevel: number;
     }[] = [];
@@ -178,12 +183,14 @@ export function OrganiserAttendance() {
       for (const sg of sec.subgroups) {
         for (const a of sg.items) {
           n += 1;
+          const u = resolveUserForAttendance(users, a);
           out.push({
             eventTitle: a.eventTitle,
             userName: a.userName,
             userEmail: a.userEmail,
             scannedAt: a.scannedAt,
-            enrollment: enrollmentLabelForAttendanceRow(resolveUserForAttendance(users, a)),
+            yearLevel: formatAcademicYearLevelLabel(u ?? {}),
+            enrollment: enrollmentLabelForAttendanceRow(u),
             rosterIndexInLevel: n,
           });
         }

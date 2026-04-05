@@ -99,3 +99,26 @@ export function userToAcademicEnrollment(u: {
     program: u.academicProgram ?? '',
   };
 }
+
+/** Grade / year label only (PDF/Excel “Year level” column); not the full department line. */
+export function formatAcademicYearLevelLabel(user: {
+  academicTrack?: AcademicTrack;
+  academicYear?: string;
+}): string {
+  const t = user.academicTrack;
+  const y = user.academicYear?.trim();
+  if (!t || !y) return '—';
+  if (t === 'junior_high') {
+    const opt = JUNIOR_HIGH_YEAR_OPTIONS.find((o) => o.value === y);
+    return opt?.label ?? y;
+  }
+  if (t === 'senior_high') {
+    const opt = SENIOR_HIGH_YEAR_OPTIONS.find((o) => o.value === y);
+    return opt?.label ?? `Grade ${y}`;
+  }
+  if (t === 'college') {
+    const opt = COLLEGE_YEAR_OPTIONS.find((o) => o.value === y);
+    return opt?.label ?? y;
+  }
+  return '—';
+}
