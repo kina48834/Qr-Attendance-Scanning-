@@ -7,10 +7,7 @@ import {
   JUNIOR_HIGH_YEAR_OPTIONS,
   SENIOR_HIGH_YEAR_OPTIONS,
 } from '@/constants/academicEnrollment';
-import { landingAuthInputClass, landingAuthLabelClass } from '@/components/auth/authClasses';
-
-const lightInputClass =
-  'w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-campus-primary focus:border-campus-primary text-sm text-slate-900 bg-white';
+import { landingAuthLabelClass } from '@/components/auth/authClasses';
 
 type Props = {
   idPrefix: string;
@@ -20,26 +17,33 @@ type Props = {
   disabled?: boolean;
 };
 
-function choiceButtonClass(selected: boolean, variant: 'landing' | 'light') {
-  const base =
-    'inline-flex min-h-[2.75rem] w-full items-center justify-center rounded-lg border px-2.5 py-2 text-center text-sm font-medium transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-0 disabled:pointer-events-none disabled:opacity-45';
+/** Shared pill / chip styling — school level, grades, years, programs */
+function choiceButtonClass(
+  selected: boolean,
+  variant: 'landing' | 'light',
+  opts?: { multiline?: boolean }
+) {
+  const multiline = opts?.multiline ?? false;
+  const size = multiline
+    ? 'min-h-[3.5rem] px-3 py-2.5 text-center text-xs sm:text-sm leading-snug'
+    : 'min-h-[2.875rem] px-3 py-2.5 text-center text-sm';
+  const base = `inline-flex w-full items-center justify-center rounded-xl border font-medium shadow-sm transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-0 active:scale-[0.98] disabled:pointer-events-none disabled:opacity-45 ${size}`;
   if (variant === 'landing') {
-    return `${base} focus-visible:ring-landing-sky/60 ${
+    return `${base} focus-visible:ring-landing-sky/70 focus-visible:ring-offset-transparent ${
       selected
-        ? 'border-landing-sky bg-landing-sky/25 text-white ring-2 ring-landing-sky/55 shadow-inner shadow-black/20'
-        : 'border-white/20 bg-white/[0.07] text-white/88 hover:border-white/35 hover:bg-white/12'
+        ? 'border-landing-sky/90 bg-gradient-to-b from-landing-sky/35 to-landing-sky/20 text-white ring-2 ring-landing-sky/60 shadow-md shadow-black/20'
+        : 'border-white/25 bg-white/[0.08] text-white/90 hover:border-white/40 hover:bg-white/[0.14] hover:shadow-md hover:shadow-black/10'
     }`;
   }
-  return `${base} focus-visible:ring-campus-primary/35 ${
+  return `${base} focus-visible:ring-campus-primary/40 focus-visible:ring-offset-2 focus-visible:ring-offset-white ${
     selected
-      ? 'border-campus-primary bg-campus-light text-campus-primary ring-2 ring-campus-primary/30'
-      : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50'
+      ? 'border-campus-primary bg-gradient-to-b from-campus-light to-blue-50/90 text-campus-primary ring-2 ring-campus-primary/35 shadow-md shadow-blue-900/5'
+      : 'border-slate-200/95 bg-white text-slate-800 hover:border-campus-primary/40 hover:bg-slate-50/95 hover:shadow-md hover:shadow-slate-900/5'
   }`;
 }
 
 export function AcademicEnrollmentFields({ idPrefix, value, onChange, variant, disabled }: Props) {
   const labelClass = variant === 'landing' ? landingAuthLabelClass : 'mb-1 block text-sm font-medium text-slate-700';
-  const selectClass = variant === 'landing' ? landingAuthInputClass : lightInputClass;
 
   const setTrack = (track: AcademicTrack) => {
     onChange({ track, year: '', program: '' });
@@ -63,15 +67,15 @@ export function AcademicEnrollmentFields({ idPrefix, value, onChange, variant, d
           : [];
 
   const yearGridClass =
-    value.track === 'senior_high' ? 'grid grid-cols-2 gap-2' : 'grid grid-cols-2 gap-2 sm:grid-cols-4';
+    value.track === 'senior_high' ? 'grid grid-cols-2 gap-2.5' : 'grid grid-cols-2 gap-2.5 sm:grid-cols-4';
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       <div role="group" aria-labelledby={`${idPrefix}-track-label`}>
         <p id={`${idPrefix}-track-label`} className={labelClass}>
           School level
         </p>
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+        <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-3">
           {ACADEMIC_TRACK_OPTIONS.map((o) => {
             const selected = value.track === o.value;
             return (
@@ -118,25 +122,28 @@ export function AcademicEnrollmentFields({ idPrefix, value, onChange, variant, d
       )}
 
       {value.track === 'college' && (
-        <div>
-          <label htmlFor={`${idPrefix}-program`} className={labelClass}>
-            Program
-          </label>
-          <select
-            id={`${idPrefix}-program`}
-            value={value.program}
-            onChange={(e) => setProgram(e.target.value)}
-            required
-            disabled={disabled}
-            className={selectClass}
-          >
-            <option value="">Select program…</option>
-            {COLLEGE_PROGRAMS.map((p) => (
-              <option key={p} value={p}>
-                {p}
-              </option>
-            ))}
-          </select>
+        <div role="group" aria-labelledby={`${idPrefix}-program-label`}>
+          <p id={`${idPrefix}-program-label`} className={labelClass}>
+            College program
+          </p>
+          <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 xl:grid-cols-3">
+            {COLLEGE_PROGRAMS.map((p, idx) => {
+              const selected = value.program === p;
+              return (
+                <button
+                  key={p}
+                  type="button"
+                  id={`${idPrefix}-program-${idx}`}
+                  disabled={disabled}
+                  aria-pressed={selected}
+                  onClick={() => setProgram(p)}
+                  className={choiceButtonClass(selected, variant, { multiline: true })}
+                >
+                  <span className="max-w-full text-pretty">{p}</span>
+                </button>
+              );
+            })}
+          </div>
         </div>
       )}
     </div>

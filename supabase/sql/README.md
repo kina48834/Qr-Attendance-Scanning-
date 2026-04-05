@@ -7,8 +7,8 @@ Run scripts in order in the Supabase SQL Editor, or paste **`00_all_in_one.sql`*
 | App area | Tables / objects |
 |----------|------------------|
 | **Login** (`Login.tsx`) | Supabase **Auth** for students/teachers who registered in the app; legacy password check on `public.users` for seeded admin/organiser/teacher/student |
-| **Register** (`Register.tsx`) | `users` insert with `academic_track`, `academic_year`, `academic_program` (incl. BS Accountancy) + `department` summary; school level & year via buttons (JH G7–10, SH G11–12, college years); program dropdown |
-| **Admin user management** | `users` CRUD (`AdminUsers.tsx`); enrollment fields match Register (button school level & year); approval patch for teachers |
+| **Register** (`Register.tsx`) | `users` insert with `academic_track`, `academic_year`, `academic_program` + `department` summary; buttons for school level, grade/year, and college programs (`COLLEGE_PROGRAMS`, incl. BS Accountancy) |
+| **Admin user management** | `users` CRUD (`AdminUsers.tsx`); same button enrollment UI as Register; approval patch for teachers |
 | **Header profile card** (`AppLayout.tsx`) | `users.public_id` (random numeric user ID), `users.role`, `users.name`, `users.email` |
 | **Student / teacher profile** | `users.academic_*` + formatted `department`; run **`15_academic_enrollment_columns.sql`** on existing DBs (or full `07` / `00_all_in_one`) |
 | **Events** | `events` table; **create** via admin / organiser / teacher UIs; past `start_date` / `end_date` blocked in app (`min` on `datetime-local`) and DB trigger `trg_events_validate_future_dates` (see `08_triggers.sql`) |
