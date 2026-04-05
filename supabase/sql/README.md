@@ -16,7 +16,7 @@ Run scripts in order in the Supabase SQL Editor, or paste **`00_all_in_one.sql`*
 | **Student Reminders** (`/student/notifications`) | Same as app: `events` + `attendance`; optional SQL `student_events_open_no_attendance`, `student_events_missed_no_attendance`, `student_reminders_count` (`14_…sql`) |
 | **Student scan (venue QR)** | `attendance`: one row per `(event_id, user_id)`; `qr_code_data` stores scanned payload |
 | **Organiser scan (student QR `ATTEND:…`)** | Same `attendance` row shape; `user_name` / `user_email` from `users` |
-| **Attendance rosters (admin / teacher / organiser)** | UI groups scans by `users.academic_track` / `academic_year` / `academic_program`; optional SQL view `v_attendance_with_user_enrollment` (`16_…sql`) |
+| **Attendance rosters (admin / teacher / organiser)** | Grouped by `users.academic_track` / `academic_year` / `academic_program`; header exports all levels; each JH/SH/college block has its own PDF/Excel; optional view `v_attendance_with_user_enrollment` (`16_…sql`) |
 | **Dashboards & analytics** | Aggregates over `users`, `events`, `attendance`, `event_registrations` (computed in app) |
 
 ## File order (categorized)

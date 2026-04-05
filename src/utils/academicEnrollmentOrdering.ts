@@ -17,6 +17,25 @@ export const ENROLLMENT_TRACK_SECTION_TITLES: Record<EnrollmentTrackId, string> 
   unspecified: 'Enrollment not on file',
 };
 
+/** Single-/multi-event PDF & Excel: subtitle + filename tag when exporting one level only */
+export const ATTENDANCE_EXPORT_SCOPE_LINE = {
+  junior_high: 'Junior high school only',
+  senior_high: 'Senior high school only',
+  college: 'College only',
+} as const;
+
+export type AttendanceExportTrackScope = keyof typeof ATTENDANCE_EXPORT_SCOPE_LINE;
+
+export const ATTENDANCE_EXPORT_FILE_TAG: Record<AttendanceExportTrackScope, string> = {
+  junior_high: 'junior_high',
+  senior_high: 'senior_high',
+  college: 'college',
+};
+
+export function isAttendanceExportTrackScope(id: EnrollmentTrackId): id is AttendanceExportTrackScope {
+  return id === 'junior_high' || id === 'senior_high' || id === 'college';
+}
+
 export function enrollmentTrackId(
   u: Pick<User, 'academicTrack' | 'academicYear'> | undefined
 ): EnrollmentTrackId {

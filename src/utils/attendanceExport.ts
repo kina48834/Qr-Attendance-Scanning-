@@ -2,6 +2,11 @@ import { format } from 'date-fns';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
+import {
+  ATTENDANCE_EXPORT_FILE_TAG,
+  ATTENDANCE_EXPORT_SCOPE_LINE,
+  type AttendanceExportTrackScope,
+} from '@/utils/academicEnrollmentOrdering';
 
 function safeFileSegment(text: string): string {
   return text.replace(/[/\\?%*:|"<>]/g, '-').replace(/\s+/g, '_').slice(0, 72) || 'attendance';
@@ -20,7 +25,11 @@ export type EventAttendanceExportMeta = {
   location?: string;
   startDate?: string;
   organiserName?: string;
+  /** When set, export is limited to one school level; shown in file header and filename */
+  segmentScope?: AttendanceExportTrackScope;
 };
+
+export type { AttendanceExportTrackScope };
 
 export type AttendanceExportRecord = {
   userName: string;
@@ -63,6 +72,7 @@ export function exportSingleEventAttendancePdf(meta: EventAttendanceExportMeta, 
     }
   }
   if (meta.organiserName) lines.push(`Organiser: ${meta.organiserName}`);
+  if (meta.segmentScope) lines.push(`Scope: ${ATTENDANCE_EXPORT_SCOPE_LINE[meta.segmentScope]}`);
   lines.push(`Generated: ${format(new Date(), 'MMM d, yyyy HH:mm')}`);
   lines.push(`Total: ${rows.length} student${rows.length === 1 ? '' : 's'}`);
   lines.forEach((line) => {
@@ -87,7 +97,8 @@ export function exportSingleEventAttendancePdf(meta: EventAttendanceExportMeta, 
     showHead: 'everyPage',
   });
 
-  doc.save(`attendance_${safeFileSegment(meta.title)}.pdf`);
+  const scopeTag = meta.segmentScope ? `_${ATTENDANCE_EXPORT_FILE_TAG[meta.segmentScope]}` : '';
+  doc.save(`attendance_${safeFileSegment(meta.title)}${scopeTag}.pdf`);
 }
 
 export function exportSingleEventAttendanceXlsx(meta: EventAttendanceExportMeta, records: AttendanceExportRecord[]) {
@@ -105,6 +116,7 @@ export function exportSingleEventAttendanceXlsx(meta: EventAttendanceExportMeta,
     }
   }
   if (meta.organiserName) metaRows.push(['Organiser', meta.organiserName]);
+  if (meta.segmentScope) metaRows.push(['Scope', ATTENDANCE_EXPORT_SCOPE_LINE[meta.segmentScope]]);
   metaRows.push(['Generated', format(new Date(), 'MMM d, yyyy HH:mm')]);
   metaRows.push(['Total students', rows.length]);
   metaRows.push([]);
@@ -121,7 +133,8 @@ export function exportSingleEventAttendanceXlsx(meta: EventAttendanceExportMeta,
   const wb = XLSX.utils.book_new();
   const sheetName = safeFileSegment(meta.title).slice(0, 31) || 'Attendance';
   XLSX.utils.book_append_sheet(wb, ws, sheetName);
-  XLSX.writeFile(wb, `attendance_${safeFileSegment(meta.title)}.xlsx`);
+  const scopeTag = meta.segmentScope ? `_${ATTENDANCE_EXPORT_FILE_TAG[meta.segmentScope]}` : '';
+  XLSX.writeFile(wb, `attendance_${safeFileSegment(meta.title)}${scopeTag}.xlsx`);
 }
 
 export type MultiEventAttendanceRow = AttendanceExportRecord & {
@@ -145,7 +158,8 @@ function sortMultiEventRows(rows: MultiEventAttendanceRow[]): MultiEventAttendan
 export function exportMultiEventAttendancePdf(
   title: string,
   subtitle: string | undefined,
-  rows: MultiEventAttendanceRow[]
+  rows: MultiEventAttendanceRow[],
+  opts?: { segmentScope?: AttendanceExportTrackScope }
 ) {
   const sorted = sortMultiEventRows(rows);
   const doc = new jsPDF({ orientation: 'landscape' });
@@ -159,6 +173,10 @@ export function exportMultiEventAttendancePdf(
   doc.setTextColor(71, 85, 105);
   if (subtitle) {
     doc.text(subtitle, margin, y);
+    y += 5;
+  }
+  if (opts?.segmentScope) {
+    doc.text(`Scope: ${ATTENDANCE_EXPORT_SCOPE_LINE[opts.segmentScope]}`, margin, y);
     y += 5;
   }
   doc.text(`Generated: ${format(new Date(), 'MMM d, yyyy HH:mm')} · ${sorted.length} row(s)`, margin, y);
@@ -188,16 +206,24 @@ export function exportMultiEventAttendancePdf(
     },
   });
 
-  doc.save(`attendance_all_events_${format(new Date(), 'yyyy-MM-dd')}.pdf`);
+  const scopeTag = opts?.segmentScope ? `_${ATTENDANCE_EXPORT_FILE_TAG[opts.segmentScope]}` : '';
+  doc.save(`attendance_all_events_${format(new Date(), 'yyyy-MM-dd')}${scopeTag}.pdf`);
 }
 
-export function exportMultiEventAttendanceXlsx(title: string, rows: MultiEventAttendanceRow[]) {
+export function exportMultiEventAttendanceXlsx(
+  title: string,
+  rows: MultiEventAttendanceRow[],
+  opts?: { segmentScope?: AttendanceExportTrackScope }
+) {
   const sorted = sortMultiEventRows(rows);
-  const aoa: (string | number)[][] = [
+  const headMeta: (string | number)[][] = [
     ['Campus Connect — ' + title],
     ['Generated', format(new Date(), 'MMM d, yyyy HH:mm')],
-    ['Total rows', sorted.length],
-    [],
+  ];
+  if (opts?.segmentScope) headMeta.push(['Scope', ATTENDANCE_EXPORT_SCOPE_LINE[opts.segmentScope]]);
+  headMeta.push(['Total rows', sorted.length], []);
+  const aoa: (string | number)[][] = [
+    ...headMeta,
     ['#', 'Event', 'Name', 'Email', 'Enrollment', 'Scanned at'],
     ...sorted.map((r, i) => [
       r.rosterIndexInLevel ?? i + 1,
@@ -210,6 +236,8 @@ export function exportMultiEventAttendanceXlsx(title: string, rows: MultiEventAt
   ];
   const ws = XLSX.utils.aoa_to_sheet(aoa);
   const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, 'All attendance');
-  XLSX.writeFile(wb, `attendance_all_events_${format(new Date(), 'yyyy-MM-dd')}.xlsx`);
+  const sheet = opts?.segmentScope ? ATTENDANCE_EXPORT_FILE_TAG[opts.segmentScope].slice(0, 31) : 'All attendance';
+  XLSX.utils.book_append_sheet(wb, ws, sheet);
+  const scopeTag = opts?.segmentScope ? `_${ATTENDANCE_EXPORT_FILE_TAG[opts.segmentScope]}` : '';
+  XLSX.writeFile(wb, `attendance_all_events_${format(new Date(), 'yyyy-MM-dd')}${scopeTag}.xlsx`);
 }

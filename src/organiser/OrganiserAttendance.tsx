@@ -11,9 +11,15 @@ import { Users, QrCode } from 'lucide-react';
 import { PageHeader, RoleBadge } from '@/components/PageHeader';
 import { AttendanceExportButtons } from '@/components/AttendanceExportButtons';
 import {
+  isAttendanceExportTrackScope,
+  type AttendanceExportTrackScope,
+} from '@/utils/academicEnrollmentOrdering';
+import {
   buildAttendanceTrackSections,
   buildAttendanceTrackSectionsWithEvent,
   enrollmentLabelForAttendanceRow,
+  multiEventRowsForAttendanceTrackSection,
+  recordsForAttendanceTrackSection,
   resolveUserForAttendance,
 } from '@/utils/attendanceEnrollmentGrouping';
 
@@ -116,6 +122,47 @@ export function OrganiserAttendance() {
     const { exportSingleEventAttendanceXlsx } = await import('@/utils/attendanceExport');
     exportSingleEventAttendanceXlsx(selectedExportMeta, selectedExportRecords);
   }, [selectedExportMeta, selectedExportRecords]);
+
+  const onSelectedTrackExport = useCallback(
+    async (scope: AttendanceExportTrackScope, kind: 'pdf' | 'xlsx') => {
+      if (!selectedExportMeta) return;
+      const sec = selectedTrackSections.find((s) => s.trackId === scope);
+      if (!sec) return;
+      const recs = recordsForAttendanceTrackSection(sec, users);
+      if (recs.length === 0) return;
+      const meta = { ...selectedExportMeta, segmentScope: scope };
+      if (kind === 'pdf') {
+        const { exportSingleEventAttendancePdf } = await import('@/utils/attendanceExport');
+        exportSingleEventAttendancePdf(meta, recs);
+      } else {
+        const { exportSingleEventAttendanceXlsx } = await import('@/utils/attendanceExport');
+        exportSingleEventAttendanceXlsx(meta, recs);
+      }
+    },
+    [selectedExportMeta, selectedTrackSections, users]
+  );
+
+  const onAllTrackExport = useCallback(
+    async (scope: AttendanceExportTrackScope, kind: 'pdf' | 'xlsx') => {
+      const sec = allAttendanceTrackSections.find((s) => s.trackId === scope);
+      if (!sec) return;
+      const trackRows = multiEventRowsForAttendanceTrackSection(sec, users);
+      if (trackRows.length === 0) return;
+      if (kind === 'pdf') {
+        const { exportMultiEventAttendancePdf } = await import('@/utils/attendanceExport');
+        exportMultiEventAttendancePdf(
+          'All my events — attendance',
+          'Filtered list (matches current search)',
+          trackRows,
+          { segmentScope: scope }
+        );
+      } else {
+        const { exportMultiEventAttendanceXlsx } = await import('@/utils/attendanceExport');
+        exportMultiEventAttendanceXlsx('All my events — attendance', trackRows, { segmentScope: scope });
+      }
+    },
+    [allAttendanceTrackSections, users]
+  );
 
   const multiExportRows = useMemo(() => {
     const out: {
@@ -267,7 +314,7 @@ export function OrganiserAttendance() {
               disabled={!selectedEvent || attendance.length === 0}
               onExportPdf={onSelectedPdf}
               onExportExcel={onSelectedExcel}
-              exportLabel="Selected event"
+              exportLabel="Selected event (all levels)"
             />
           </div>
           {selectedEvent ? (
@@ -306,11 +353,32 @@ export function OrganiserAttendance() {
                       return (
                         <Fragment key={sec.trackId}>
                           <tr className="bg-slate-200/90">
-                            <td colSpan={5} className="px-4 py-2.5 text-sm font-bold uppercase tracking-wide text-slate-800">
-                              {sec.sectionTitle}
-                              <span className="ml-2 font-normal normal-case text-slate-600 text-xs">
-                                ({total} student{total === 1 ? '' : 's'} — #1–{total})
-                              </span>
+                            <td colSpan={5} className="px-4 py-2.5 align-top">
+                              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                                <div className="text-sm font-bold uppercase tracking-wide text-slate-800">
+                                  {sec.sectionTitle}
+                                  <span className="ml-2 font-normal normal-case text-slate-600 text-xs">
+                                    ({total} student{total === 1 ? '' : 's'} — #1–{total})
+                                  </span>
+                                </div>
+                                {isAttendanceExportTrackScope(sec.trackId) && (
+                                  <AttendanceExportButtons
+                                    compact
+                                    disabled={total === 0}
+                                    onExportPdf={() => {
+                                      const tid = sec.trackId;
+                                      if (!isAttendanceExportTrackScope(tid)) return;
+                                      void onSelectedTrackExport(tid, 'pdf');
+                                    }}
+                                    onExportExcel={() => {
+                                      const tid = sec.trackId;
+                                      if (!isAttendanceExportTrackScope(tid)) return;
+                                      void onSelectedTrackExport(tid, 'xlsx');
+                                    }}
+                                    exportLabel={`${sec.sectionTitle} only`}
+                                  />
+                                )}
+                              </div>
                             </td>
                           </tr>
                           {sec.subgroups.map((g) => (
@@ -367,7 +435,7 @@ export function OrganiserAttendance() {
             disabled={visibleAttendanceRows.length === 0}
             onExportPdf={onAllPdf}
             onExportExcel={onAllExcel}
-            exportLabel="Filtered table"
+            exportLabel="All levels (filtered table)"
           />
         </div>
         <div className="max-h-96 overflow-x-auto overflow-y-auto">
@@ -414,11 +482,32 @@ export function OrganiserAttendance() {
                   return (
                     <Fragment key={`all-${sec.trackId}`}>
                       <tr className="bg-slate-200/90">
-                        <td colSpan={6} className="px-4 py-2.5 text-sm font-bold uppercase tracking-wide text-slate-800">
-                          {sec.sectionTitle}
-                          <span className="ml-2 font-normal normal-case text-slate-600 text-xs">
-                            ({total} row{total === 1 ? '' : 's'} — #1–{total})
-                          </span>
+                        <td colSpan={6} className="px-4 py-2.5 align-top">
+                          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                            <div className="text-sm font-bold uppercase tracking-wide text-slate-800">
+                              {sec.sectionTitle}
+                              <span className="ml-2 font-normal normal-case text-slate-600 text-xs">
+                                ({total} row{total === 1 ? '' : 's'} — #1–{total})
+                              </span>
+                            </div>
+                            {isAttendanceExportTrackScope(sec.trackId) && (
+                              <AttendanceExportButtons
+                                compact
+                                disabled={total === 0}
+                                onExportPdf={() => {
+                                  const tid = sec.trackId;
+                                  if (!isAttendanceExportTrackScope(tid)) return;
+                                  void onAllTrackExport(tid, 'pdf');
+                                }}
+                                onExportExcel={() => {
+                                  const tid = sec.trackId;
+                                  if (!isAttendanceExportTrackScope(tid)) return;
+                                  void onAllTrackExport(tid, 'xlsx');
+                                }}
+                                exportLabel={`${sec.sectionTitle} only`}
+                              />
+                            )}
+                          </div>
                         </td>
                       </tr>
                       {sec.subgroups.map((g) => (

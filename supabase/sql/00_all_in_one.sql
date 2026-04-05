@@ -398,7 +398,7 @@ comment on column public.events.status is 'draft | published | completed | cance
 comment on column public.events.qr_code_data is 'Event QR payload; StudentScan / eventMatchesScannedValue.';
 comment on column public.events.max_attendees is 'Optional cap from event forms.';
 comment on table public.attendance is
-  'One row per student per event: StudentScan (venue QR) or OrganiserScanAttendance (ATTEND:userId:eventId).';
+  'One row per student per event: StudentScan (venue QR) or OrganiserScanAttendance (ATTEND:userId:eventId). Admin / teacher / organiser rosters join `users` for junior high / senior high / college grouping; app exports full roster or per-level PDF/Excel (`attendanceExport.ts`).';
 comment on column public.attendance.qr_code_data is 'Raw or normalised scanned string stored for audit.';
 comment on constraint uq_attendance_event_user on public.attendance is
   'Prevents duplicate attendance for same user+event (matches StudentScan / OrganiserScan duplicate checks).';

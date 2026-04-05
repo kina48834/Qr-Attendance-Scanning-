@@ -6,9 +6,11 @@ import { useData } from '@/context/DataContext';
 import { PageHeader, RoleBadge } from '@/components/PageHeader';
 import { eventStatusBadgeClass } from '@/utils/eventStatusStyles';
 import { AttendanceExportButtons } from '@/components/AttendanceExportButtons';
+import { isAttendanceExportTrackScope, type AttendanceExportTrackScope } from '@/utils/academicEnrollmentOrdering';
 import {
   buildAttendanceTrackSections,
   enrollmentLabelForAttendanceRow,
+  recordsForAttendanceTrackSection,
   resolveUserForAttendance,
 } from '@/utils/attendanceEnrollmentGrouping';
 
@@ -80,6 +82,25 @@ export function EventAttendanceRoster({ eventsListPath, badge }: EventAttendance
     exportSingleEventAttendanceXlsx(exportMeta, exportRecords);
   }, [exportMeta, exportRecords]);
 
+  const exportSingleTrack = useCallback(
+    async (scope: AttendanceExportTrackScope, kind: 'pdf' | 'xlsx') => {
+      if (!exportMeta) return;
+      const sec = trackSections.find((s) => s.trackId === scope);
+      if (!sec) return;
+      const recs = recordsForAttendanceTrackSection(sec, users);
+      if (recs.length === 0) return;
+      const meta = { ...exportMeta, segmentScope: scope };
+      if (kind === 'pdf') {
+        const { exportSingleEventAttendancePdf } = await import('@/utils/attendanceExport');
+        exportSingleEventAttendancePdf(meta, recs);
+      } else {
+        const { exportSingleEventAttendanceXlsx } = await import('@/utils/attendanceExport');
+        exportSingleEventAttendanceXlsx(meta, recs);
+      }
+    },
+    [exportMeta, trackSections, users]
+  );
+
   if (!eventId) {
     return <Navigate to={eventsListPath} replace />;
   }
@@ -129,7 +150,7 @@ export function EventAttendanceRoster({ eventsListPath, badge }: EventAttendance
             disabled={rows.length === 0}
             onExportPdf={onPdf}
             onExportExcel={onExcel}
-            exportLabel="This roster"
+            exportLabel="Full roster (all levels)"
           />
         </div>
         {rows.length === 0 ? (
@@ -144,10 +165,31 @@ export function EventAttendanceRoster({ eventsListPath, badge }: EventAttendance
               return (
                 <Fragment key={sec.trackId}>
                   <div className="sticky top-0 z-[1] border-b border-slate-300 bg-slate-200/95 px-4 py-3 sm:px-5">
-                    <p className="text-sm font-bold uppercase tracking-wide text-slate-800">{sec.sectionTitle}</p>
-                    <p className="text-xs text-slate-600 tabular-nums mt-0.5">
-                      {totalInTrack} student{totalInTrack === 1 ? '' : 's'} — numbered 1–{totalInTrack} in this level
-                    </p>
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
+                      <div className="min-w-0">
+                        <p className="text-sm font-bold uppercase tracking-wide text-slate-800">{sec.sectionTitle}</p>
+                        <p className="text-xs text-slate-600 tabular-nums mt-0.5">
+                          {totalInTrack} student{totalInTrack === 1 ? '' : 's'} — numbered 1–{totalInTrack} in this level
+                        </p>
+                      </div>
+                      {isAttendanceExportTrackScope(sec.trackId) && (
+                        <AttendanceExportButtons
+                          compact
+                          disabled={totalInTrack === 0}
+                          onExportPdf={() => {
+                            const tid = sec.trackId;
+                            if (!isAttendanceExportTrackScope(tid)) return;
+                            void exportSingleTrack(tid, 'pdf');
+                          }}
+                          onExportExcel={() => {
+                            const tid = sec.trackId;
+                            if (!isAttendanceExportTrackScope(tid)) return;
+                            void exportSingleTrack(tid, 'xlsx');
+                          }}
+                          exportLabel={`${sec.sectionTitle} only`}
+                        />
+                      )}
+                    </div>
                   </div>
                   {sec.subgroups.map((g) => (
                     <Fragment key={g.subgroupKey}>

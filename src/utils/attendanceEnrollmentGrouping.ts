@@ -1,4 +1,5 @@
 import type { AttendanceRecord, User } from '@/types';
+import type { AttendanceExportRecord, MultiEventAttendanceRow } from '@/utils/attendanceExport';
 import { formatUserAcademicLine } from '@/utils/academicProfileDisplay';
 import {
   compareTrackIds,
@@ -132,3 +133,47 @@ export function buildAttendanceTrackSectionsWithEvent(
   return sections;
 }
 
+/** Rows for PDF/Excel for one track section (# restarts at 1 within that level). */
+export function recordsForAttendanceTrackSection<T extends AttendanceRecord>(
+  section: EnrollmentTrackSection<T>,
+  users: User[]
+): AttendanceExportRecord[] {
+  const out: AttendanceExportRecord[] = [];
+  let n = 0;
+  for (const sg of section.subgroups) {
+    for (const r of sg.items) {
+      n += 1;
+      out.push({
+        userName: r.userName,
+        userEmail: r.userEmail,
+        scannedAt: r.scannedAt,
+        enrollment: enrollmentLabelForAttendanceRow(resolveUserForAttendance(users, r as AttendanceRecord)),
+        rosterIndexInLevel: n,
+      });
+    }
+  }
+  return out;
+}
+
+/** Organiser “all events” table: one track’s rows including event title. */
+export function multiEventRowsForAttendanceTrackSection(
+  section: EnrollmentTrackSection<AttendanceRecordWithEvent>,
+  users: User[]
+): MultiEventAttendanceRow[] {
+  const out: MultiEventAttendanceRow[] = [];
+  let n = 0;
+  for (const sg of section.subgroups) {
+    for (const r of sg.items) {
+      n += 1;
+      out.push({
+        eventTitle: r.eventTitle,
+        userName: r.userName,
+        userEmail: r.userEmail,
+        scannedAt: r.scannedAt,
+        enrollment: enrollmentLabelForAttendanceRow(resolveUserForAttendance(users, r)),
+        rosterIndexInLevel: n,
+      });
+    }
+  }
+  return out;
+}
