@@ -2,9 +2,27 @@ import { useMemo, useState } from 'react';
 import { useData } from '@/context/DataContext';
 import { EventListSearchBar } from '@/components/EventListSearchBar';
 import { filterEventsBySearch } from '@/utils/eventSearch';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
-
-const COLORS = ['#0f766e', '#14b8a6', '#0d9488', '#134e4a'];
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
+  Legend,
+  CartesianGrid,
+} from 'recharts';
+import {
+  ANALYTICS_ATTENDED_FILL,
+  ANALYTICS_REGISTERED_FILL,
+  ANALYTICS_TREND_FILL,
+  ANALYTICS_PIE_FILLS,
+  analyticsCartesianGridProps,
+  analyticsTooltipContentStyle,
+} from '@/constants/analyticsCharts';
 
 export function TeacherAnalytics() {
   const { events, getAnalytics } = useData();
@@ -35,17 +53,19 @@ export function TeacherAnalytics() {
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
-          <h2 className="font-semibold text-slate-900 mb-4">Event Participation</h2>
+        <div className="bg-white rounded-xl border border-slate-200/90 shadow-sm p-5 ring-1 ring-blue-950/[0.04]">
+          <h2 className="font-semibold text-slate-900 mb-1">Event participation</h2>
+          <p className="text-xs text-slate-500 mb-4">Registered vs attended per event</p>
           <div className="h-80">
             {filteredParticipation.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={filteredParticipation} margin={{ top: 10, right: 10, left: 0, bottom: 60 }}>
-                  <XAxis dataKey="eventTitle" angle={-30} textAnchor="end" height={80} tick={{ fontSize: 11 }} />
-                  <YAxis />
-                  <Tooltip />
-                  <Bar dataKey="registered" fill="#94a3b8" name="Registered" radius={[4, 4, 0, 0]} />
-                  <Bar dataKey="attended" fill="#0f766e" name="Attended" radius={[4, 4, 0, 0]} />
+                <BarChart data={filteredParticipation} margin={{ top: 8, right: 8, left: 0, bottom: 60 }}>
+                  <CartesianGrid {...analyticsCartesianGridProps} />
+                  <XAxis dataKey="eventTitle" angle={-30} textAnchor="end" height={80} tick={{ fontSize: 11, fill: '#64748b' }} />
+                  <YAxis tick={{ fontSize: 11, fill: '#64748b' }} />
+                  <Tooltip contentStyle={analyticsTooltipContentStyle} cursor={{ fill: 'rgba(37, 99, 235, 0.06)' }} />
+                  <Bar dataKey="registered" fill={ANALYTICS_REGISTERED_FILL} name="Registered" radius={[6, 6, 0, 0]} />
+                  <Bar dataKey="attended" fill={ANALYTICS_ATTENDED_FILL} name="Attended" radius={[6, 6, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             ) : eventParticipation.length === 0 ? (
@@ -56,8 +76,9 @@ export function TeacherAnalytics() {
           </div>
         </div>
 
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
-          <h2 className="font-semibold text-slate-900 mb-4">User Activity by Role</h2>
+        <div className="bg-white rounded-xl border border-slate-200/90 shadow-sm p-5 ring-1 ring-blue-950/[0.04]">
+          <h2 className="font-semibold text-slate-900 mb-1">User activity by role</h2>
+          <p className="text-xs text-slate-500 mb-4">Distribution across roles</p>
           <div className="h-80">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
@@ -67,31 +88,39 @@ export function TeacherAnalytics() {
                   nameKey="role"
                   cx="50%"
                   cy="50%"
-                  outerRadius={80}
+                  innerRadius={44}
+                  outerRadius={88}
+                  paddingAngle={2}
                   label={false}
                   labelLine={false}
                 >
                   {userActivity.map((_, i) => (
-                    <Cell key={i} fill={COLORS[i % COLORS.length]} />
+                    <Cell key={i} fill={ANALYTICS_PIE_FILLS[i % ANALYTICS_PIE_FILLS.length]} stroke="#fff" strokeWidth={2} />
                   ))}
                 </Pie>
-                <Tooltip formatter={(value: number) => value} labelFormatter={(label: string) => label} />
-                <Legend formatter={(value: string) => value} wrapperStyle={{ paddingTop: '20px' }} />
+                <Tooltip
+                  formatter={(value: number) => value}
+                  labelFormatter={(label: string) => label}
+                  contentStyle={analyticsTooltipContentStyle}
+                />
+                <Legend formatter={(value: string) => value} wrapperStyle={{ paddingTop: '16px' }} />
               </PieChart>
             </ResponsiveContainer>
           </div>
         </div>
       </div>
 
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
-        <h2 className="font-semibold text-slate-900 mb-4">Attendance Trends Over Time</h2>
+      <div className="bg-white rounded-xl border border-slate-200/90 shadow-sm p-5 ring-1 ring-blue-950/[0.04]">
+        <h2 className="font-semibold text-slate-900 mb-1">Attendance trends</h2>
+        <p className="text-xs text-slate-500 mb-4">Scans recorded over time</p>
         <div className="h-80">
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={attendanceTrends} margin={{ top: 10, right: 10, left: 0, bottom: 30 }}>
-              <XAxis dataKey="date" />
-              <YAxis />
-              <Tooltip />
-              <Bar dataKey="count" fill="#0f766e" name="Scans" radius={[4, 4, 0, 0]} />
+            <BarChart data={attendanceTrends} margin={{ top: 8, right: 8, left: 0, bottom: 30 }}>
+              <CartesianGrid {...analyticsCartesianGridProps} />
+              <XAxis dataKey="date" tick={{ fontSize: 11, fill: '#64748b' }} />
+              <YAxis tick={{ fontSize: 11, fill: '#64748b' }} />
+              <Tooltip contentStyle={analyticsTooltipContentStyle} cursor={{ fill: 'rgba(37, 99, 235, 0.06)' }} />
+              <Bar dataKey="count" fill={ANALYTICS_TREND_FILL} name="Scans" radius={[6, 6, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>

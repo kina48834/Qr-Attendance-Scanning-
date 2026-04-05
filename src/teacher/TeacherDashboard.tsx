@@ -17,7 +17,7 @@ export function TeacherDashboard() {
     <div className="space-y-8">
       <PageHeader
         title="Teacher dashboard"
-        description="Manage events and attendance for your classes."
+        description="View campus events, open student rosters, and review attendance analytics."
         badge={<RoleBadge>Teacher</RoleBadge>}
       />
 
@@ -54,7 +54,7 @@ export function TeacherDashboard() {
       <div className="bg-white rounded-2xl border border-slate-200/90 shadow-card overflow-hidden">
         <div className="px-5 py-4 border-b border-slate-100 bg-gradient-to-r from-slate-50/80 to-white">
           <h2 className="font-semibold text-slate-900">Recent events</h2>
-          <p className="text-sm text-slate-600">Campus events you can manage or review</p>
+          <p className="text-sm text-slate-600">Campus events you can open for rosters</p>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full">

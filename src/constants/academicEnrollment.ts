@@ -9,10 +9,10 @@ export const ACADEMIC_TRACK_OPTIONS: { value: AcademicTrack; label: string }[] =
 ];
 
 export const JUNIOR_HIGH_YEAR_OPTIONS = [
-  { value: '1', label: 'First year' },
-  { value: '2', label: 'Second year' },
-  { value: '3', label: 'Third year' },
-  { value: '4', label: 'Fourth year' },
+  { value: '1', label: '1st — First year' },
+  { value: '2', label: '2nd — Second year' },
+  { value: '3', label: '3rd — Third year' },
+  { value: '4', label: '4th — Fourth year' },
 ] as const;
 
 export const SENIOR_HIGH_YEAR_OPTIONS = [
@@ -21,10 +21,10 @@ export const SENIOR_HIGH_YEAR_OPTIONS = [
 ] as const;
 
 export const COLLEGE_YEAR_OPTIONS = [
-  { value: '1', label: 'First year' },
-  { value: '2', label: 'Second year' },
-  { value: '3', label: 'Third year' },
-  { value: '4', label: 'Fourth year' },
+  { value: '1', label: '1st — First year' },
+  { value: '2', label: '2nd — Second year' },
+  { value: '3', label: '3rd — Third year' },
+  { value: '4', label: '4th — Fourth year' },
 ] as const;
 
 export const COLLEGE_PROGRAMS = [
@@ -36,6 +36,7 @@ export const COLLEGE_PROGRAMS = [
   'BS Education',
   'BS Business Administration',
   'BS Hospitality Management',
+  'BS Accountancy',
 ] as const;
 
 export type AcademicEnrollmentValue = {

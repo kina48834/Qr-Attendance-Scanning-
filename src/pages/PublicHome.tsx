@@ -329,7 +329,7 @@ export function PublicHome() {
             {[
               ['Administrator', 'System-wide users, events, and attendance with full analytics.'],
               ['Organiser', 'Run events, show QR codes, and monitor live attendance.'],
-              ['Teacher', 'Manage class events and review participation for your groups.'],
+              ['Teacher', 'View event rosters and attendance; event setup stays with organisers and admins.'],
               ['Student', 'Browse events, register, and scan QR to record attendance.'],
             ].map(([title, desc]) => (
               <div key={title} className="p-4 rounded-2xl bg-slate-50/90 border border-slate-100 hover:border-campus-primary/20 transition-colors">

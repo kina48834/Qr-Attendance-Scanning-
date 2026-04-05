@@ -3,7 +3,13 @@ import { useAuth } from '@/context/AuthContext';
 import { useData } from '@/context/DataContext';
 import { EventListSearchBar } from '@/components/EventListSearchBar';
 import { filterEventsBySearch } from '@/utils/eventSearch';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
+import {
+  ANALYTICS_ATTENDED_FILL,
+  ANALYTICS_REGISTERED_FILL,
+  analyticsCartesianGridProps,
+  analyticsTooltipContentStyle,
+} from '@/constants/analyticsCharts';
 
 export function OrganiserAnalytics() {
   const { user } = useAuth();
@@ -38,17 +44,19 @@ export function OrganiserAnalytics() {
         />
       )}
 
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
-        <h2 className="font-semibold text-slate-900 mb-4">Participation by event</h2>
+      <div className="bg-white rounded-xl border border-slate-200/90 shadow-sm p-6 ring-1 ring-blue-950/[0.04]">
+        <h2 className="font-semibold text-slate-900 mb-1">Participation by event</h2>
+        <p className="text-xs text-slate-500 mb-4">Registered vs attended for your events</p>
         <div className="h-80">
           {filteredParticipation.length > 0 ? (
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={filteredParticipation} margin={{ top: 10, right: 10, left: 0, bottom: 60 }}>
-                <XAxis dataKey="eventTitle" angle={-30} textAnchor="end" height={80} tick={{ fontSize: 11 }} />
-                <YAxis />
-                <Tooltip />
-                <Bar dataKey="registered" fill="#94a3b8" name="Registered" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="attended" fill="#0f766e" name="Attended" radius={[4, 4, 0, 0]} />
+              <BarChart data={filteredParticipation} margin={{ top: 8, right: 8, left: 0, bottom: 60 }}>
+                <CartesianGrid {...analyticsCartesianGridProps} />
+                <XAxis dataKey="eventTitle" angle={-30} textAnchor="end" height={80} tick={{ fontSize: 11, fill: '#64748b' }} />
+                <YAxis tick={{ fontSize: 11, fill: '#64748b' }} />
+                <Tooltip contentStyle={analyticsTooltipContentStyle} cursor={{ fill: 'rgba(37, 99, 235, 0.06)' }} />
+                <Bar dataKey="registered" fill={ANALYTICS_REGISTERED_FILL} name="Registered" radius={[6, 6, 0, 0]} />
+                <Bar dataKey="attended" fill={ANALYTICS_ATTENDED_FILL} name="Attended" radius={[6, 6, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           ) : myParticipation.length === 0 ? (

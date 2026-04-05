@@ -4,7 +4,6 @@ import { useAuth } from '@/context/AuthContext';
 import { AppLayout, teacherNav } from '@/components/Layout/AppLayout';
 import { TeacherDashboard } from './TeacherDashboard';
 import { TeacherEvents } from './TeacherEvents';
-import { TeacherEventForm } from './TeacherEventForm';
 import { TeacherAnalytics } from './TeacherAnalytics';
 import { TeacherProfile } from './TeacherProfile';
 import { TeacherEventAttendancePage } from '@/components/EventAttendanceRoster';
@@ -45,7 +44,7 @@ export function TeacherRoutes() {
         <Route index element={<TeacherDashboard />} />
         <Route path="events" element={<TeacherEvents />} />
         <Route path="events/new" element={<Navigate to="/teacher/events" replace />} />
-        <Route path="events/edit/:eventId" element={<TeacherEventForm />} />
+        <Route path="events/edit/:eventId" element={<Navigate to="/teacher/events" replace />} />
         <Route path="events/:eventId/attendance" element={<TeacherEventAttendancePage />} />
         <Route path="users" element={<Navigate to="/teacher" replace />} />
         <Route path="profile" element={<TeacherProfile />} />

@@ -28,7 +28,7 @@ values
     'student',
     null,
     null,
-    'College — BS Information Technology — First year',
+    'College — BS Information Technology — 1st — First year',
     null,
     'college',
     '1',

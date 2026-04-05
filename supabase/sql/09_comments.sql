@@ -81,14 +81,14 @@ comment on column public.users.approval_status is 'Teacher only: pending (self-r
 comment on column public.users.phone is 'Teacher profile; required when role = teacher.';
 comment on column public.users.department is 'Summary line for lists/search; set from school enrollment for students/teachers (formatAcademicDepartmentLine) or legacy teacher text.';
 comment on column public.users.academic_track is 'junior_high | senior_high | college — registration (Register.tsx). Rosters & Admin Users: JH (years 1–4), SH (11–12), college (years 1–4 + program).';
-comment on column public.users.academic_year is 'JH 1–4, SH 11–12, college 1–4; see academicEnrollment.ts; idx_users_academic_roster matches app ordering.';
-comment on column public.users.academic_program is 'College program name when track = college; otherwise null. Sub-sorts within college year on rosters.';
+comment on column public.users.academic_year is 'JH 1–4 (UI: 1st–4th + First–Fourth year), SH 11–12 (Grade 11/12 only); college years use same 1st–4th labels; idx_users_academic_roster matches app ordering.';
+comment on column public.users.academic_program is 'College program when track = college (app: BS Accountancy, BS CS, BS IT, …); otherwise null. Sub-sorts within college year on rosters.';
 comment on column public.users.employee_id is 'Teacher staff ID; required when role = teacher.';
 comment on column public.users.office_location is 'Optional teacher office/room.';
 comment on column public.users.avatar is 'Optional profile image URL (reserved for future UI).';
 
 comment on table public.events is
-  'Events browsed by students. Inserts: admin / organiser (app). Teachers manage existing events (edit, roster, delete) but do not manage user accounts; the teacher Events UI does not add new rows — align with Campus Connect teacher routes.';
+  'Events browsed by students. Inserts/updates: admin / organiser (app). Teachers view events and attendance rosters only — no edit/delete in app; teacher Events UI does not add new rows.';
 
 comment on column public.events.organiser_id is 'FK to users; organiser or teacher (AdminEventForm).';
 comment on column public.events.organiser_name is 'Denormalised display name for lists and search.';

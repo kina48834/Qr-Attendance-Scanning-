@@ -4,12 +4,12 @@ import { useData } from '@/context/DataContext';
 import { EventListSearchBar } from '@/components/EventListSearchBar';
 import { filterEventsBySearch } from '@/utils/eventSearch';
 import { format } from 'date-fns';
-import { Calendar, ClipboardList, MapPin, User, Edit2, Trash2 } from 'lucide-react';
+import { Calendar, ClipboardList, MapPin, User } from 'lucide-react';
 import { PageHeader, RoleBadge } from '@/components/PageHeader';
 import { eventStatusBadgeClass } from '@/utils/eventStatusStyles';
 
 export function TeacherEvents() {
-  const { events, deleteEvent, getEventAttendance } = useData();
+  const { events, getEventAttendance } = useData();
   const navigate = useNavigate();
   const [search, setSearch] = useState('');
   const sortedEvents = useMemo(
@@ -18,17 +18,11 @@ export function TeacherEvents() {
   );
   const visibleEvents = useMemo(() => filterEventsBySearch(sortedEvents, search), [sortedEvents, search]);
 
-  const handleDelete = (id: string, title: string) => {
-    if (window.confirm(`Delete event "${title}"? Attendance and registrations for this event will also be removed.`)) {
-      deleteEvent(id);
-    }
-  };
-
   return (
     <div className="space-y-5">
       <PageHeader
         title="All events"
-        description="View and manage campus events: rosters, edits, and status. New events are created by administrators or organisers."
+        description="Browse campus events and open attendance rosters. You cannot edit or delete events — administrators and organisers handle that."
         badge={<RoleBadge>Teacher</RoleBadge>}
       />
 
@@ -61,8 +55,8 @@ export function TeacherEvents() {
                 <th className="px-4 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 w-[12%]">
                   Status
                 </th>
-                <th className="px-4 py-3.5 text-right text-xs font-semibold uppercase tracking-wider text-slate-500 w-[26%] min-w-[9rem]">
-                  Actions
+                <th className="px-4 py-3.5 text-right text-xs font-semibold uppercase tracking-wider text-slate-500 w-[18%] min-w-[7rem]">
+                  Roster
                 </th>
               </tr>
             </thead>
@@ -93,32 +87,16 @@ export function TeacherEvents() {
                     <span className={eventStatusBadgeClass(evt.status)}>{evt.status}</span>
                   </td>
                   <td className="px-4 py-4 align-top">
-                    <div className="flex flex-wrap items-center justify-end gap-1.5">
+                    <div className="flex flex-wrap items-center justify-end">
                       <button
                         type="button"
                         onClick={() => navigate(`/teacher/events/${evt.id}/attendance`)}
-                        className="inline-flex items-center gap-1.5 rounded-lg border border-campus-primary/35 bg-campus-light/60 px-2.5 py-1.5 text-xs font-medium text-campus-primary hover:bg-campus-light"
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-blue-200 bg-blue-50/80 px-2.5 py-1.5 text-xs font-medium text-blue-800 hover:bg-blue-100/80"
                         title={`Attendance (${getEventAttendance(evt.id).length})`}
                       >
-                        <ClipboardList className="w-3.5 h-3.5" />
-                        <span className="hidden sm:inline">Roster</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => navigate(`/teacher/events/edit/${evt.id}`)}
-                        className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
-                        title="Edit"
-                      >
-                        <Edit2 className="w-3.5 h-3.5" />
-                        <span className="hidden sm:inline">Edit</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleDelete(evt.id, evt.title)}
-                        className="inline-flex items-center gap-1 rounded-lg border border-red-200 bg-white px-2.5 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50"
-                        title="Delete"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
+                        <ClipboardList className="w-3.5 h-3.5 shrink-0" />
+                        <span className="hidden sm:inline">View roster</span>
+                        <span className="sm:hidden">Roster</span>
                       </button>
                     </div>
                   </td>
@@ -131,7 +109,7 @@ export function TeacherEvents() {
           <div className="p-14 text-center text-slate-500">
             <p className="font-medium text-slate-700">No events yet</p>
             <p className="text-sm mt-1 max-w-md mx-auto">
-              When an administrator or organiser publishes an event, it will appear here for you to manage.
+              When an administrator or organiser publishes an event, it will appear here so you can open the student roster.
             </p>
           </div>
         )}
