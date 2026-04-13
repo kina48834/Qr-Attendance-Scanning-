@@ -10,7 +10,6 @@ import { format } from 'date-fns';
 import { Users, QrCode } from 'lucide-react';
 import { PageHeader, RoleBadge } from '@/components/PageHeader';
 import { AttendanceExportButtons } from '@/components/AttendanceExportButtons';
-import { formatAcademicYearLevelLabel } from '@/constants/academicEnrollment';
 import {
   isAttendanceExportTrackScope,
   type AttendanceExportTrackScope,
@@ -18,7 +17,9 @@ import {
 import {
   buildAttendanceTrackSections,
   buildAttendanceTrackSectionsWithEvent,
+  departmentLabelForExport,
   enrollmentLabelForAttendanceRow,
+  exportDisplayName,
   multiEventRowsForAttendanceTrackSection,
   recordsForAttendanceTrackSection,
   resolveUserForAttendance,
@@ -61,7 +62,11 @@ export function OrganiserAttendance() {
       allMyAttendance.filter((a) => {
         const u = resolveUserForAttendance(users, a);
         const en = enrollmentLabelForAttendanceRow(u);
-        return textMatchesEventSearch([a.eventTitle, a.userName, a.userEmail, en].join(' '), eventSearch);
+        const disp = exportDisplayName(u, a);
+        return textMatchesEventSearch(
+          [a.eventTitle, disp, a.userEmail, en].join(' '),
+          eventSearch
+        );
       }),
     [allMyAttendance, eventSearch, users]
   );
@@ -72,30 +77,9 @@ export function OrganiserAttendance() {
   );
 
   const selectedExportRecords = useMemo(() => {
-    const out: {
-      userName: string;
-      userEmail: string;
-      scannedAt: string;
-      yearLevel: string;
-      enrollment: string;
-      rosterIndexInLevel: number;
-    }[] = [];
+    const out = [];
     for (const sec of selectedTrackSections) {
-      let n = 0;
-      for (const sg of sec.subgroups) {
-        for (const r of sg.items) {
-          n += 1;
-          const u = resolveUserForAttendance(users, r);
-          out.push({
-            userName: r.userName,
-            userEmail: r.userEmail,
-            scannedAt: r.scannedAt,
-            yearLevel: formatAcademicYearLevelLabel(u ?? {}),
-            enrollment: enrollmentLabelForAttendanceRow(u),
-            rosterIndexInLevel: n,
-          });
-        }
-      }
+      out.push(...recordsForAttendanceTrackSection(sec, users));
     }
     return out;
   }, [selectedTrackSections, users]);
@@ -169,32 +153,9 @@ export function OrganiserAttendance() {
   );
 
   const multiExportRows = useMemo(() => {
-    const out: {
-      eventTitle: string;
-      userName: string;
-      userEmail: string;
-      scannedAt: string;
-      yearLevel: string;
-      enrollment: string;
-      rosterIndexInLevel: number;
-    }[] = [];
+    const out = [];
     for (const sec of allAttendanceTrackSections) {
-      let n = 0;
-      for (const sg of sec.subgroups) {
-        for (const a of sg.items) {
-          n += 1;
-          const u = resolveUserForAttendance(users, a);
-          out.push({
-            eventTitle: a.eventTitle,
-            userName: a.userName,
-            userEmail: a.userEmail,
-            scannedAt: a.scannedAt,
-            yearLevel: formatAcademicYearLevelLabel(u ?? {}),
-            enrollment: enrollmentLabelForAttendanceRow(u),
-            rosterIndexInLevel: n,
-          });
-        }
-      }
+      out.push(...multiEventRowsForAttendanceTrackSection(sec, users));
     }
     return out;
   }, [allAttendanceTrackSections, users]);
@@ -326,7 +287,7 @@ export function OrganiserAttendance() {
           </div>
           {selectedEvent ? (
             <div className="max-h-96 overflow-x-auto overflow-y-auto">
-              <table className="w-full min-w-[560px] text-sm">
+              <table className="w-full min-w-[680px] text-sm">
                 <thead className="sticky top-0 z-[1] border-b border-slate-200 bg-slate-50/95">
                   <tr>
                     <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
@@ -339,17 +300,20 @@ export function OrganiserAttendance() {
                       Email
                     </th>
                     <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
-                      Enrollment
+                      Department
                     </th>
                     <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
-                      Scanned at
+                      Time in
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
+                      Time out
                     </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {attendance.length === 0 ? (
                     <tr>
-                      <td colSpan={5} className="px-4 py-10 text-center text-slate-500">
+                      <td colSpan={6} className="px-4 py-10 text-center text-slate-500">
                         No scans yet for this event.
                       </td>
                     </tr>
@@ -360,7 +324,7 @@ export function OrganiserAttendance() {
                       return (
                         <Fragment key={sec.trackId}>
                           <tr className="bg-slate-200/90">
-                            <td colSpan={5} className="px-4 py-2.5 align-top">
+                            <td colSpan={6} className="px-4 py-2.5 align-top">
                               <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                                 <div className="text-sm font-bold uppercase tracking-wide text-slate-800">
                                   {sec.sectionTitle}
@@ -392,7 +356,7 @@ export function OrganiserAttendance() {
                             <Fragment key={g.subgroupKey}>
                               <tr className="bg-slate-100/90">
                                 <td
-                                  colSpan={5}
+                                  colSpan={6}
                                   className="px-4 py-2 pl-6 text-xs font-semibold uppercase tracking-wide text-slate-600"
                                 >
                                   {g.label}
@@ -403,14 +367,25 @@ export function OrganiserAttendance() {
                               </tr>
                               {g.items.map((a) => {
                                 seqInTrack += 1;
+                                const rowUser = resolveUserForAttendance(users, a);
+                                const rowName = exportDisplayName(rowUser, a);
                                 return (
                                   <tr key={a.id} className="hover:bg-slate-50/80">
                                     <td className="px-4 py-3 tabular-nums text-slate-500">{seqInTrack}</td>
-                                    <td className="px-4 py-3 font-medium text-slate-900">{a.userName}</td>
+                                    <td className="px-4 py-3 font-medium text-slate-900">
+                                      {rowName !== '—' ? rowName : 'Student'}
+                                    </td>
                                     <td className="px-4 py-3 text-slate-600">{a.userEmail}</td>
-                                    <td className="px-4 py-3 text-sm text-slate-700">{g.label}</td>
+                                    <td className="px-4 py-3 text-sm text-slate-700">
+                                      {departmentLabelForExport(rowUser)}
+                                    </td>
                                     <td className="px-4 py-3 tabular-nums text-slate-600">
                                       {format(new Date(a.scannedAt), 'MMM d, yyyy HH:mm')}
+                                    </td>
+                                    <td className="px-4 py-3 tabular-nums text-slate-600">
+                                      {a.timeOutAt
+                                        ? format(new Date(a.timeOutAt), 'MMM d, yyyy HH:mm')
+                                        : '—'}
                                     </td>
                                   </tr>
                                 );
@@ -446,7 +421,7 @@ export function OrganiserAttendance() {
           />
         </div>
         <div className="max-h-96 overflow-x-auto overflow-y-auto">
-          <table className="w-full min-w-[720px] text-sm">
+          <table className="w-full min-w-[840px] text-sm">
             <thead className="sticky top-0 z-[1] border-b border-slate-200 bg-slate-50/95">
               <tr>
                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
@@ -462,23 +437,26 @@ export function OrganiserAttendance() {
                   Email
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
-                  Enrollment
+                  Department
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
-                  Scanned at
+                  Time in
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
+                  Time out
                 </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {allMyAttendance.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-4 py-10 text-center text-slate-500">
+                  <td colSpan={7} className="px-4 py-10 text-center text-slate-500">
                     No scanned attendance for your events yet.
                   </td>
                 </tr>
               ) : visibleAttendanceRows.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-4 py-10 text-center text-slate-500">
+                  <td colSpan={7} className="px-4 py-10 text-center text-slate-500">
                     No rows match your search.
                   </td>
                 </tr>
@@ -489,7 +467,7 @@ export function OrganiserAttendance() {
                   return (
                     <Fragment key={`all-${sec.trackId}`}>
                       <tr className="bg-slate-200/90">
-                        <td colSpan={6} className="px-4 py-2.5 align-top">
+                        <td colSpan={7} className="px-4 py-2.5 align-top">
                           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                             <div className="text-sm font-bold uppercase tracking-wide text-slate-800">
                               {sec.sectionTitle}
@@ -521,7 +499,7 @@ export function OrganiserAttendance() {
                         <Fragment key={g.subgroupKey}>
                           <tr className="bg-slate-100/90">
                             <td
-                              colSpan={6}
+                              colSpan={7}
                               className="px-4 py-2 pl-6 text-xs font-semibold uppercase tracking-wide text-slate-600"
                             >
                               {g.label}
@@ -530,15 +508,26 @@ export function OrganiserAttendance() {
                           </tr>
                           {g.items.map((a) => {
                             seqInTrack += 1;
+                            const rowUser = resolveUserForAttendance(users, a);
+                            const rowName = exportDisplayName(rowUser, a);
                             return (
                               <tr key={a.id} className="hover:bg-slate-50/80">
                                 <td className="px-4 py-3 tabular-nums text-slate-500">{seqInTrack}</td>
                                 <td className="px-4 py-3 font-medium text-slate-800">{a.eventTitle}</td>
-                                <td className="px-4 py-3 font-medium text-slate-900">{a.userName}</td>
+                                <td className="px-4 py-3 font-medium text-slate-900">
+                                  {rowName !== '—' ? rowName : 'Student'}
+                                </td>
                                 <td className="px-4 py-3 text-slate-600">{a.userEmail}</td>
-                                <td className="px-4 py-3 text-sm text-slate-700">{g.label}</td>
+                                <td className="px-4 py-3 text-sm text-slate-700">
+                                  {departmentLabelForExport(rowUser)}
+                                </td>
                                 <td className="px-4 py-3 tabular-nums text-slate-600">
                                   {format(new Date(a.scannedAt), 'MMM d, yyyy HH:mm')}
+                                </td>
+                                <td className="px-4 py-3 tabular-nums text-slate-600">
+                                  {a.timeOutAt
+                                    ? format(new Date(a.timeOutAt), 'MMM d, yyyy HH:mm')
+                                    : '—'}
                                 </td>
                               </tr>
                             );

@@ -46,6 +46,7 @@ type AttendanceRow = {
   user_name: string;
   user_email: string;
   scanned_at: string;
+  time_out_at: string | null;
   qr_code_data: string;
 };
 
@@ -64,7 +65,7 @@ function toUser(row: UserRow): User {
     name: row.name,
     role: row.role,
     ...(row.avatar ? { avatar: row.avatar } : {}),
-    ...(row.approval_status ? { approvalStatus: row.approval_status } : {}),
+    ...(row.approval_status != null ? { approvalStatus: row.approval_status } : {}),
     ...(row.phone ? { phone: row.phone } : {}),
     ...(row.department ? { department: row.department } : {}),
     ...(row.academic_track ? { academicTrack: row.academic_track as User['academicTrack'] } : {}),
@@ -73,7 +74,7 @@ function toUser(row: UserRow): User {
     ...(row.employee_id ? { employeeId: row.employee_id } : {}),
     ...(row.office_location ? { officeLocation: row.office_location } : {}),
     createdAt: row.created_at,
-    ...(row.password ? { password: row.password } : {}),
+    ...(typeof row.password === 'string' ? { password: row.password } : {}),
   };
 }
 
@@ -137,6 +138,7 @@ function toAttendance(row: AttendanceRow): AttendanceRecord {
     userName: row.user_name,
     userEmail: row.user_email,
     scannedAt: row.scanned_at,
+    ...(row.time_out_at != null && row.time_out_at !== '' ? { timeOutAt: row.time_out_at } : {}),
     qrCodeData: row.qr_code_data,
   };
 }
@@ -211,42 +213,38 @@ export async function fetchUserById(id: string): Promise<User | null> {
   return toUser(data as UserRow);
 }
 
-/** Escape %, _, \\ for PostgREST ilike (case-insensitive email match). */
-function escapeIlikeExact(value: string): string {
-  return value.replace(/\\/g, '\\\\').replace(/%/g, '\\%').replace(/_/g, '\\_');
-}
+const USERS_SELECT_WITH_PASSWORD =
+  'id, public_id, email, name, role, avatar, approval_status, phone, department, academic_track, academic_year, academic_program, employee_id, office_location, created_at, password';
 
-/** Legacy table-password login: load profile by email (indexed eq first, then ilike for mixed-case rows). */
+/** Legacy table-password login: load profile by email using stable non-throwing list queries. */
 export async function fetchUserByEmailForLegacyLogin(emailInput: string): Promise<User | null> {
   const trimmed = emailInput.trim();
   if (!trimmed) return null;
   const lower = trimmed.toLowerCase();
-
-  const { data: byLower, error: errLower } = await supabase
-    .from('users')
-    .select('*')
-    .eq('email', lower)
-    .maybeSingle();
-  if (errLower) throw errLower;
-  if (byLower) return toUser(byLower as UserRow);
-
-  if (trimmed !== lower) {
-    const { data: byExact, error: errExact } = await supabase
+  const candidates = trimmed === lower ? [lower] : [lower, trimmed];
+  for (const email of candidates) {
+    const { data, error } = await supabase
       .from('users')
-      .select('*')
-      .eq('email', trimmed)
-      .maybeSingle();
-    if (errExact) throw errExact;
-    if (byExact) return toUser(byExact as UserRow);
+      .select(USERS_SELECT_WITH_PASSWORD)
+      .eq('email', email)
+      .order('created_at', { ascending: true })
+      .limit(1);
+    if (error) throw error;
+    if (data && data.length > 0) return toUser(data[0] as UserRow);
   }
-
-  const { data: byIlike, error: errIlike } = await supabase
-    .from('users')
-    .select('*')
-    .ilike('email', escapeIlikeExact(trimmed))
-    .maybeSingle();
-  if (errIlike) throw errIlike;
-  if (byIlike) return toUser(byIlike as UserRow);
+  // Last fallback for legacy mixed-case rows; do not fail login on ilike parser issues.
+  try {
+    const { data, error } = await supabase
+      .from('users')
+      .select(USERS_SELECT_WITH_PASSWORD)
+      .ilike('email', trimmed)
+      .order('created_at', { ascending: true })
+      .limit(1);
+    if (error) throw error;
+    if (data && data.length > 0) return toUser(data[0] as UserRow);
+  } catch {
+    /* ignore fallback failures */
+  }
   return null;
 }
 
@@ -292,7 +290,11 @@ export async function insertUser(
     office_location: payload.officeLocation?.trim() || null,
     created_at: new Date().toISOString(),
   };
-  const { data, error } = await supabase.from('users').insert(row).select('*').single();
+  const { data, error } = await supabase
+    .from('users')
+    .upsert(row, { onConflict: 'id' })
+    .select('*')
+    .single();
   if (error) throw error;
   return toUser(data as UserRow);
 }
@@ -377,9 +379,30 @@ export async function insertAttendance(record: Omit<AttendanceRecord, 'id' | 'sc
     user_email: record.userEmail,
     qr_code_data: record.qrCodeData,
     scanned_at: new Date().toISOString(),
+    time_out_at: null as string | null,
   };
   const { data, error } = await supabase.from('attendance').insert(row).select('*').single();
   if (error) throw error;
+  return toAttendance(data as AttendanceRow);
+}
+
+/** Student-only: set checkout time once; row must belong to `userId` and not already have time out. */
+export async function setAttendanceTimeOut(attendanceId: string, userId: string): Promise<AttendanceRecord> {
+  const now = new Date().toISOString();
+  const { data, error } = await supabase
+    .from('attendance')
+    .update({ time_out_at: now })
+    .eq('id', attendanceId)
+    .eq('user_id', userId)
+    .is('time_out_at', null)
+    .select('*')
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) {
+    throw new Error(
+      'Could not record time out. It may already be set, or this record does not belong to your account.'
+    );
+  }
   return toAttendance(data as AttendanceRow);
 }
 

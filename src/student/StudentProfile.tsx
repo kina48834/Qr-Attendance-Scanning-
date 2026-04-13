@@ -37,7 +37,7 @@ export function StudentProfile() {
             <div className="flex items-start gap-3">
               <Building2 className="mt-0.5 h-5 w-5 shrink-0 text-campus-primary" />
               <div>
-                <p className="text-xs font-medium uppercase tracking-wide text-slate-500">School enrollment</p>
+                <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Department</p>
                 <p className="text-slate-800">{academicLine}</p>
               </div>
             </div>
@@ -65,7 +65,8 @@ export function StudentProfile() {
             <thead>
               <tr className="bg-slate-50 text-left text-sm text-slate-600">
                 <th className="px-5 py-3 font-medium">Event</th>
-                <th className="px-5 py-3 font-medium">Scanned at</th>
+                <th className="px-5 py-3 font-medium">Time in</th>
+                <th className="px-5 py-3 font-medium">Time out</th>
               </tr>
             </thead>
             <tbody>
@@ -76,7 +77,12 @@ export function StudentProfile() {
                   return (
                     <tr key={a.id} className="border-t border-slate-100">
                       <td className="px-5 py-3 font-medium text-slate-900">{evt?.title ?? '—'}</td>
-                      <td className="px-5 py-3 text-slate-600">{format(new Date(a.scannedAt), 'MMM d, yyyy HH:mm')}</td>
+                      <td className="px-5 py-3 text-slate-600 tabular-nums">
+                        {format(new Date(a.scannedAt), 'MMM d, yyyy HH:mm')}
+                      </td>
+                      <td className="px-5 py-3 text-slate-600 tabular-nums">
+                        {a.timeOutAt ? format(new Date(a.timeOutAt), 'MMM d, yyyy HH:mm') : '—'}
+                      </td>
                     </tr>
                   );
                 })}

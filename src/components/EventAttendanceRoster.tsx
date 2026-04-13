@@ -7,10 +7,9 @@ import { PageHeader, RoleBadge } from '@/components/PageHeader';
 import { eventStatusBadgeClass } from '@/utils/eventStatusStyles';
 import { AttendanceExportButtons } from '@/components/AttendanceExportButtons';
 import { isAttendanceExportTrackScope, type AttendanceExportTrackScope } from '@/utils/academicEnrollmentOrdering';
-import { formatAcademicYearLevelLabel } from '@/constants/academicEnrollment';
 import {
   buildAttendanceTrackSections,
-  enrollmentLabelForAttendanceRow,
+  exportDisplayName,
   recordsForAttendanceTrackSection,
   resolveUserForAttendance,
 } from '@/utils/attendanceEnrollmentGrouping';
@@ -36,30 +35,9 @@ export function EventAttendanceRoster({ eventsListPath, badge }: EventAttendance
   const trackSections = useMemo(() => buildAttendanceTrackSections(rows, users), [rows, users]);
 
   const exportRecords = useMemo(() => {
-    const out: {
-      userName: string;
-      userEmail: string;
-      scannedAt: string;
-      yearLevel: string;
-      enrollment: string;
-      rosterIndexInLevel: number;
-    }[] = [];
+    const out = [];
     for (const sec of trackSections) {
-      let n = 0;
-      for (const sg of sec.subgroups) {
-        for (const r of sg.items) {
-          n += 1;
-          const u = resolveUserForAttendance(users, r);
-          out.push({
-            userName: r.userName,
-            userEmail: r.userEmail,
-            scannedAt: r.scannedAt,
-            yearLevel: formatAcademicYearLevelLabel(u ?? {}),
-            enrollment: enrollmentLabelForAttendanceRow(u),
-            rosterIndexInLevel: n,
-          });
-        }
-      }
+      out.push(...recordsForAttendanceTrackSection(sec, users));
     }
     return out;
   }, [trackSections, users]);
@@ -204,6 +182,8 @@ export function EventAttendanceRoster({ eventsListPath, badge }: EventAttendance
                       <ol className="divide-y divide-slate-100">
                         {g.items.map((r) => {
                           seqInTrack += 1;
+                          const rosterUser = resolveUserForAttendance(users, r);
+                          const rosterName = exportDisplayName(rosterUser, r);
                           return (
                             <li
                               key={r.id}
@@ -215,16 +195,24 @@ export function EventAttendanceRoster({ eventsListPath, badge }: EventAttendance
                               <div className="min-w-0 flex-1">
                                 <p className="flex items-center gap-2 font-semibold text-slate-900">
                                   <User className="h-4 w-4 shrink-0 text-slate-400" aria-hidden />
-                                  {r.userName}
+                                  {rosterName !== '—' ? rosterName : 'Student'}
                                 </p>
                                 <p className="mt-0.5 flex items-center gap-1.5 text-sm text-slate-600">
                                   <Mail className="h-3.5 w-3.5 shrink-0 text-slate-400" aria-hidden />
                                   {r.userEmail}
                                 </p>
                               </div>
-                              <p className="shrink-0 text-xs tabular-nums text-slate-500 sm:text-right">
-                                Scanned {format(new Date(r.scannedAt), 'MMM d, yyyy · HH:mm')}
-                              </p>
+                              <div className="shrink-0 text-right text-xs tabular-nums text-slate-500">
+                                <p>
+                                  In {format(new Date(r.scannedAt), 'MMM d, yyyy · HH:mm')}
+                                </p>
+                                <p className="mt-0.5">
+                                  Out{' '}
+                                  {r.timeOutAt
+                                    ? format(new Date(r.timeOutAt), 'MMM d, yyyy · HH:mm')
+                                    : '—'}
+                                </p>
+                              </div>
                             </li>
                           );
                         })}

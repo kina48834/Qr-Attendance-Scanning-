@@ -1,4 +1,4 @@
--- Academic enrollment columns on public.users (registration + student/teacher profiles).
+-- Department / academic line columns on public.users (registration + student/teacher profiles).
 -- App: src/constants/academicEnrollment.ts, Register.tsx, StudentProfile, TeacherProfile.
 -- Safe to re-run.
 

@@ -36,7 +36,19 @@ values
     now(),
     'student1919'
   )
-on conflict (id) do nothing;
+on conflict (id) do update set
+  public_id = excluded.public_id,
+  email = excluded.email,
+  name = excluded.name,
+  role = excluded.role,
+  approval_status = excluded.approval_status,
+  phone = excluded.phone,
+  department = excluded.department,
+  employee_id = excluded.employee_id,
+  academic_track = excluded.academic_track,
+  academic_year = excluded.academic_year,
+  academic_program = excluded.academic_program,
+  password = excluded.password;
 
 -- Drop legacy multi-event demo rows (safe if ids never existed)
 delete from public.attendance where event_id in ('evt-2', 'evt-3', 'evt-4', 'evt-5', 'evt-6');

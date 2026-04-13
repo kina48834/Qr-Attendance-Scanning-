@@ -62,16 +62,17 @@ function filterUsersBySearch(list: AppUser[], query: string): AppUser[] {
     if (u.name.toLowerCase().includes(q)) return true;
     if (u.email.toLowerCase().includes(q)) return true;
     if (roleLabel(u.role).toLowerCase().includes(q)) return true;
-    if (u.role === 'teacher') {
+    if (u.role === 'teacher' || u.role === 'student') {
       const ap = u.approvalStatus ?? 'approved';
       if (approvalLabel(ap).toLowerCase().includes(q)) return true;
       if (ap.toLowerCase().includes(q)) return true;
       if (u.department?.toLowerCase().includes(q)) return true;
+    }
+    if (u.role === 'teacher') {
       if (u.employeeId?.toLowerCase().includes(q)) return true;
       if (u.phone?.toLowerCase().includes(q)) return true;
     }
     if (u.role === 'student') {
-      if (u.department?.toLowerCase().includes(q)) return true;
       if (formatUserAcademicLine(u)?.toLowerCase().includes(q)) return true;
     }
     return false;
@@ -270,7 +271,7 @@ export function AdminUsers() {
     }
   };
 
-  const patchTeacherApproval = (id: string, approvalStatus: 'approved' | 'rejected') => {
+  const patchUserApproval = (id: string, approvalStatus: 'approved' | 'rejected') => {
     setError('');
     const r = updateUser(id, { approvalStatus });
     if (r && typeof (r as Promise<void>).then === 'function') {
@@ -299,10 +300,7 @@ export function AdminUsers() {
         <PageHeader
           title="User management"
           description={
-            <>
-              Add organisers, teachers, admins, or students. Self-registered teachers appear as{' '}
-              <strong>Pending</strong> until you approve them here.
-            </>
+            <>Add organisers, teachers, admins, or students. Self-registered students and teachers appear as <strong>Pending</strong> until you approve them here.</>
           }
           badge={<RoleBadge>Admin</RoleBadge>}
         />
@@ -372,7 +370,7 @@ export function AdminUsers() {
             </div>
             {(form.role === 'student' || form.role === 'teacher') && (
               <div className="space-y-3 rounded-xl border border-slate-100 bg-slate-50/80 p-4">
-                <p className="text-sm font-medium text-slate-800">School enrollment</p>
+                <p className="text-sm font-medium text-slate-800">Department</p>
                 <AcademicEnrollmentFields
                   idPrefix="admin-user-academic"
                   variant="light"
@@ -524,7 +522,7 @@ export function AdminUsers() {
                               currentUserId={currentUser?.id}
                               onEdit={handleEdit}
                               onDelete={handleDelete}
-                              patchTeacherApproval={patchTeacherApproval}
+                              patchUserApproval={patchUserApproval}
                             />
                           );
                         })}
@@ -554,7 +552,7 @@ export function AdminUsers() {
                       currentUserId={currentUser?.id}
                       onEdit={handleEdit}
                       onDelete={handleDelete}
-                      patchTeacherApproval={patchTeacherApproval}
+                      patchUserApproval={patchUserApproval}
                     />
                   ))}
                 </>
@@ -589,7 +587,7 @@ type UserManagementRowProps = {
   currentUserId: string | undefined;
   onEdit: (u: AppUser) => void;
   onDelete: (id: string, email: string) => void;
-  patchTeacherApproval: (id: string, status: 'approved' | 'rejected') => void;
+  patchUserApproval: (id: string, status: 'approved' | 'rejected') => void;
 };
 
 function UserManagementRow({
@@ -598,7 +596,7 @@ function UserManagementRow({
   currentUserId,
   onEdit,
   onDelete,
-  patchTeacherApproval,
+  patchUserApproval,
 }: UserManagementRowProps) {
   return (
                 <tr className="transition-colors hover:bg-slate-50/80">
@@ -624,14 +622,48 @@ function UserManagementRow({
                   </td>
                   <td className="px-4 py-4 align-top text-slate-600">
                     {u.role === 'student' ? (
-                      formatUserAcademicLine(u) ? (
-                        <p className="flex items-start gap-2 text-xs">
-                          <Building2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-campus-primary" aria-hidden />
-                          <span>{formatUserAcademicLine(u)}</span>
-                        </p>
-                      ) : (
-                        <span className="text-slate-400">—</span>
-                      )
+                      <div className="space-y-3">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${approvalBadgeClass(u.approvalStatus)}`}>
+                            {approvalLabel(u.approvalStatus)}
+                          </span>
+                          {u.approvalStatus === 'pending' && (
+                            <div className="flex flex-wrap gap-1.5">
+                              <button
+                                type="button"
+                                onClick={() => patchUserApproval(u.id, 'approved')}
+                                className="rounded-lg bg-emerald-600 px-2.5 py-1 text-xs font-medium text-white hover:bg-emerald-700"
+                              >
+                                Approve
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => patchUserApproval(u.id, 'rejected')}
+                                className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                              >
+                                Reject
+                              </button>
+                            </div>
+                          )}
+                          {u.approvalStatus === 'rejected' && (
+                            <button
+                              type="button"
+                              onClick={() => patchUserApproval(u.id, 'approved')}
+                              className="rounded-lg bg-emerald-600 px-2.5 py-1 text-xs font-medium text-white hover:bg-emerald-700"
+                            >
+                              Approve
+                            </button>
+                          )}
+                        </div>
+                        {formatUserAcademicLine(u) ? (
+                          <p className="flex items-start gap-2 text-xs">
+                            <Building2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-campus-primary" aria-hidden />
+                            <span>{formatUserAcademicLine(u)}</span>
+                          </p>
+                        ) : (
+                          <span className="text-slate-400">—</span>
+                        )}
+                      </div>
                     ) : u.role === 'teacher' ? (
                       <div className="space-y-3">
                         <div className="flex flex-wrap items-center gap-2">
@@ -642,14 +674,14 @@ function UserManagementRow({
                             <div className="flex flex-wrap gap-1.5">
                               <button
                                 type="button"
-                                onClick={() => patchTeacherApproval(u.id, 'approved')}
+                                onClick={() => patchUserApproval(u.id, 'approved')}
                                 className="rounded-lg bg-emerald-600 px-2.5 py-1 text-xs font-medium text-white hover:bg-emerald-700"
                               >
                                 Approve
                               </button>
                               <button
                                 type="button"
-                                onClick={() => patchTeacherApproval(u.id, 'rejected')}
+                                onClick={() => patchUserApproval(u.id, 'rejected')}
                                 className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50"
                               >
                                 Reject
@@ -659,7 +691,7 @@ function UserManagementRow({
                           {u.approvalStatus === 'rejected' && (
                             <button
                               type="button"
-                              onClick={() => patchTeacherApproval(u.id, 'approved')}
+                              onClick={() => patchUserApproval(u.id, 'approved')}
                               className="rounded-lg bg-emerald-600 px-2.5 py-1 text-xs font-medium text-white hover:bg-emerald-700"
                             >
                               Approve

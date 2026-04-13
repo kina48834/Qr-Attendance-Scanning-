@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Info, LogIn } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
@@ -16,8 +16,8 @@ import {
   landingAlertWarn,
   landingAlertError,
 } from '@/components/auth/authClasses';
-import { teacherSignInBlockMessage } from '@/utils/userApproval';
-import { authSignIn, authSignOut, SUPABASE_AUTH_PASSWORD_MARKER } from '@/supabase/authFlow';
+import { approvalSignInBlockMessage } from '@/utils/userApproval';
+import { authSignIn, authSignOut, normalizeAuthEmail, SUPABASE_AUTH_PASSWORD_MARKER } from '@/supabase/authFlow';
 import { fetchUserById, fetchUserByEmailForLegacyLogin } from '@/supabase/dataService';
 import type { User } from '@/types';
 
@@ -38,19 +38,41 @@ export function Login() {
   const locState = location.state as {
     teacherRegisteredPending?: boolean;
     teacherAccountNotice?: 'pending' | 'rejected';
+    studentRegisteredPending?: boolean;
+    studentAccountNotice?: 'pending' | 'rejected';
   } | null;
   const teacherPendingNotice = locState?.teacherRegisteredPending;
   const teacherAccountNotice = locState?.teacherAccountNotice;
+  const studentPendingNotice = locState?.studentRegisteredPending;
+  const studentAccountNotice = locState?.studentAccountNotice;
+
+  useEffect(() => {
+    if (studentAccountNotice === 'pending') {
+      window.alert('Your student account is pending administrator approval. You can sign in after admin approval.');
+      return;
+    }
+    if (studentAccountNotice === 'rejected') {
+      window.alert('Your student registration was rejected by the administrator. Please contact admin for the reason and next steps.');
+      return;
+    }
+    if (teacherAccountNotice === 'pending') {
+      window.alert('Your teacher account is pending administrator approval. You can sign in after admin approval.');
+      return;
+    }
+    if (teacherAccountNotice === 'rejected') {
+      window.alert('Your teacher registration was rejected by the administrator. Please contact admin for the reason and next steps.');
+    }
+  }, [studentAccountNotice, teacherAccountNotice]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    const emailTrim = email.trim();
+    const emailNorm = normalizeAuthEmail(email);
     const passwordTrimmed = password.trim();
 
     let tableUser: Awaited<ReturnType<typeof fetchUserByEmailForLegacyLogin>>;
     try {
-      tableUser = await fetchUserByEmailForLegacyLogin(emailTrim);
+      tableUser = await fetchUserByEmailForLegacyLogin(emailNorm);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       setError(
@@ -64,9 +86,10 @@ export function Login() {
       tableUser.password !== SUPABASE_AUTH_PASSWORD_MARKER &&
       tableUser.password === passwordTrimmed
     ) {
-      const block = teacherSignInBlockMessage(tableUser);
+      const block = approvalSignInBlockMessage(tableUser);
       if (block) {
         setError(block);
+        window.alert(block);
         return;
       }
       try {
@@ -74,16 +97,13 @@ export function Login() {
       } catch {
         /* ignore */
       }
-      await new Promise<void>((resolve) => {
-        setTimeout(resolve, 0);
-      });
       const { password: _, ...sessionUser } = tableUser;
       setUser({ ...sessionUser });
       navigateAfterLogin(tableUser.role, navigate);
       return;
     }
 
-    const { data: signData, error: signErr } = await authSignIn(emailTrim, passwordTrimmed);
+    const { data: signData, error: signErr } = await authSignIn(emailNorm, passwordTrimmed);
     if (!signErr && signData.user) {
       const profile = await fetchUserById(signData.user.id);
       if (!profile) {
@@ -93,9 +113,10 @@ export function Login() {
         await authSignOut();
         return;
       }
-      const block = teacherSignInBlockMessage(profile);
+      const block = approvalSignInBlockMessage(profile);
       if (block) {
         setError(block);
+        window.alert(block);
         await authSignOut();
         return;
       }
@@ -108,7 +129,7 @@ export function Login() {
     if (tableUser?.password === SUPABASE_AUTH_PASSWORD_MARKER) {
       setError(
         signErr?.message ??
-          'This email uses Supabase Auth. Sign in with the password you chose at registration.'
+          'This email is tied to Supabase Auth — sign in with the password you chose at registration. Seeded table accounts (admin1919, organiser1919, …) only apply when that email’s profile row uses the database password; if you created an Auth user for the same email, delete it under Authentication → Users or use another email, then re-run 06_seed.sql.'
       );
       return;
     }
@@ -125,8 +146,36 @@ export function Login() {
         <p className={landingAuthEyebrowClass}>Andres Soriano Colleges of Bislig</p>
         <h1 className="mt-1 text-xl font-bold tracking-tight text-white sm:text-2xl">Sign in</h1>
         <p className="mt-1 text-xs text-white/65 sm:text-sm">Campus Connect — events, QR attendance, and analytics.</p>
+        {import.meta.env.DEV && (
+          <p className="mt-2 rounded-lg border border-white/15 bg-white/[0.06] px-3 py-2 text-[11px] leading-snug text-white/80">
+            <span className="font-semibold text-white/90">Dev — SQL seed logins:</span> admin@gmail.com /{' '}
+            <code className="text-sky-200/95">admin1919</code>, organiser /{' '}
+            <code className="text-sky-200/95">organiser1919</code>, teacher /{' '}
+            <code className="text-sky-200/95">teacher1919</code>, student /{' '}
+            <code className="text-sky-200/95">student1919</code> (run <code className="text-white/70">06_seed.sql</code> in
+            Supabase if rows are missing).
+          </p>
+        )}
 
         <form onSubmit={handleSubmit} className="relative z-[1] mt-5 space-y-3">
+          {studentPendingNotice && (
+            <div className={landingAlertInfo}>
+              <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-sky-200" aria-hidden />
+              <span>Student registration pending — sign in after approval.</span>
+            </div>
+          )}
+          {studentAccountNotice === 'pending' && (
+            <div className={landingAlertWarn}>
+              <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-200" aria-hidden />
+              <span>Student area locked until your account is approved.</span>
+            </div>
+          )}
+          {studentAccountNotice === 'rejected' && (
+            <div className={landingAlertError}>
+              <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-red-200" aria-hidden />
+              <span>Student registration was not approved. Contact administration.</span>
+            </div>
+          )}
           {teacherPendingNotice && (
             <div className={landingAlertInfo}>
               <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-sky-200" aria-hidden />

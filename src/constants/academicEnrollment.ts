@@ -70,7 +70,7 @@ export function formatAcademicDepartmentLine(
 }
 
 export function validateAcademicEnrollment(v: AcademicEnrollmentValue): string | null {
-  if (!v.track) return 'Select a school level (junior high, senior high, or college).';
+  if (!v.track) return 'Select a track (junior high, senior high, or college).';
   if (!v.year) return 'Select a year or grade level.';
   if (v.track === 'junior_high' && !JUNIOR_HIGH_YEAR_OPTIONS.some((o) => o.value === v.year)) {
     return 'Choose a valid junior high grade (Grade 7–10).';

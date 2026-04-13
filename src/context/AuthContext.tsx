@@ -31,11 +31,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     void supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (cancelled || !session?.user) return;
       const parsed = readStoredUser();
-      if (
-        parsed?.id &&
-        !isSupabaseAuthUserId(parsed.id) &&
-        parsed.id !== session.user.id
-      ) {
+      if (parsed?.id && !isSupabaseAuthUserId(parsed.id)) {
         await supabase.auth.signOut();
         return;
       }
@@ -53,15 +49,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (event === 'SIGNED_OUT') {
-        const parsed = readStoredUser();
-        const id = parsed?.id;
-        if (id && isSupabaseAuthUserId(id)) {
-          setUserState(null);
-          localStorage.removeItem('campus-connect-user');
-        }
+        // Defer clearing so Login can run setUser(admin) in the same submit handler after await signOut();
+        // without this, we clear UUID localStorage before the legacy user is written → redirect to /login.
+        window.setTimeout(() => {
+          const parsed = readStoredUser();
+          const id = parsed?.id;
+          if (id && isSupabaseAuthUserId(id)) {
+            setUserState(null);
+            localStorage.removeItem('campus-connect-user');
+          }
+        }, 0);
         return;
       }
       if (!session?.user) return;
+      const parsed = readStoredUser();
+      if (parsed?.id && !isSupabaseAuthUserId(parsed.id)) {
+        void supabase.auth.signOut();
+        return;
+      }
       try {
         const profile = await fetchUserById(session.user.id);
         if (!profile) return;

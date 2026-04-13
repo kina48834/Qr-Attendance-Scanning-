@@ -1,19 +1,30 @@
 import type { User } from '@/types';
 
-/** How sign-in / routing should treat a teacher account. */
-export function effectiveTeacherApproval(u: Pick<User, 'role' | 'approvalStatus'>): 'approved' | 'pending' | 'rejected' {
-  if (u.role !== 'teacher') return 'approved';
+type ApprovalCheckedRole = 'student' | 'teacher';
+export type ApprovalStatus = 'approved' | 'pending' | 'rejected';
+
+export function roleUsesApproval(role: User['role']): role is ApprovalCheckedRole {
+  return role === 'student' || role === 'teacher';
+}
+
+/** How sign-in / routing should treat student and teacher accounts. */
+export function effectiveUserApproval(u: Pick<User, 'role' | 'approvalStatus'>): ApprovalStatus {
+  if (!roleUsesApproval(u.role)) return 'approved';
   return u.approvalStatus ?? 'approved';
 }
 
-export function teacherSignInBlockMessage(u: Pick<User, 'role' | 'approvalStatus'>): string | null {
-  if (u.role !== 'teacher') return null;
-  const s = effectiveTeacherApproval(u);
+export function approvalSignInBlockMessage(u: Pick<User, 'role' | 'approvalStatus'>): string | null {
+  if (!roleUsesApproval(u.role)) return null;
+  const s = effectiveUserApproval(u);
   if (s === 'pending') {
-    return 'Your teacher account is pending administrator approval. You can sign in once an administrator has approved it in Admin → Users.';
+    return u.role === 'teacher'
+      ? 'Your teacher account is pending administrator approval. You can sign in once an administrator has approved it in Admin → Users.'
+      : 'Your student account is pending administrator approval. You can sign in once an administrator has approved it in Admin → Users.';
   }
   if (s === 'rejected') {
-    return 'Your teacher registration was not approved. Please contact administration if you need help.';
+    return u.role === 'teacher'
+      ? 'Your teacher registration was not approved. Please contact administration if you need help.'
+      : 'Your student registration was not approved. Please contact administration if you need help.';
   }
   return null;
 }

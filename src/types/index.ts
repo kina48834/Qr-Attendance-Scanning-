@@ -12,7 +12,7 @@ export interface User {
   name: string;
   role: UserRole;
   avatar?: string;
-  /** Self-registered teachers start as pending until approved by an administrator (Admin User Management) */
+  /** Self-registered students/teachers start as pending until approved by an administrator (Admin User Management) */
   approvalStatus?: TeacherApprovalStatus;
   /** Teacher / staff profile (optional for other roles) */
   phone?: string;
@@ -51,7 +51,10 @@ export interface AttendanceRecord {
   userId: string;
   userName: string;
   userEmail: string;
+  /** QR check-in (time in) */
   scannedAt: string;
+  /** Student-recorded checkout from History; omitted until set */
+  timeOutAt?: string | null;
   qrCodeData: string;
 }
 

@@ -8,10 +8,12 @@
 --   14_student_event_reminder_functions.sql
 --   15_academic_enrollment_columns.sql (also inlined in 07_constraints.sql)
 --   16_attendance_enrollment_view.sql
+--   18_handle_new_auth_user.sql
+--   19_attendance_time_out.sql (inlined after 04 indexes)
 --   12_verify_demo_users.sql  13_repair_demo_login_users.sql
 -- update this file to match (or re-paste sections).
 --
--- Order in this file: 01 → 02 → 03 → 04 → 07 → 08 → 09 → 05 → 11 → 14 → 16 → 06 → 10 → 12.
+-- Order in this file: 01 → 02 → 03 → 04 (+19 attendance time_out) → 07 → 08 → 09 → 05 → 11 → 18 → 14 → 16 → 06 → 10 → 12.
 -- Script 13 is appended only as a commented block (run separately to repair existing DBs).
 
 -- --- 01_extensions.sql ---
@@ -98,6 +100,7 @@ create table if not exists public.attendance (
   user_name text not null,
   user_email text not null,
   scanned_at timestamptz not null default now(),
+  time_out_at timestamptz null,
   qr_code_data text not null,
   constraint uq_attendance_event_user unique (event_id, user_id)
 );
@@ -123,6 +126,18 @@ create index if not exists idx_attendance_event_id on public.attendance(event_id
 create index if not exists idx_attendance_user_id on public.attendance(user_id);
 create index if not exists idx_attendance_scanned_at on public.attendance(scanned_at);
 create index if not exists idx_event_registrations_event_id on public.event_registrations(event_id);
+
+-- --- 19_attendance_time_out.sql ---
+alter table public.attendance add column if not exists time_out_at timestamptz null;
+
+alter table public.attendance drop constraint if exists chk_attendance_time_out_after_scan;
+alter table public.attendance
+  add constraint chk_attendance_time_out_after_scan check (
+    time_out_at is null or time_out_at >= scanned_at
+  );
+
+comment on column public.attendance.time_out_at is
+  'When the student tapped Time out on History; null until recorded. Must be on or after scanned_at (QR check-in).';
 create index if not exists idx_event_registrations_user_id on public.event_registrations(user_id);
 
 -- --- 07_constraints.sql ---
@@ -174,7 +189,7 @@ where end_date < start_date;
 
 update public.users
 set approval_status = null
-where role is distinct from 'teacher'::user_role
+where role not in ('teacher'::user_role, 'student'::user_role)
   and approval_status is not null;
 
 update public.users
@@ -200,7 +215,7 @@ alter table public.events
 alter table public.users drop constraint if exists chk_users_approval_teacher_only;
 alter table public.users
   add constraint chk_users_approval_teacher_only check (
-    (role = 'teacher'::user_role) or (approval_status is null)
+    (role in ('teacher'::user_role, 'student'::user_role)) or (approval_status is null)
   );
 
 alter table public.users drop constraint if exists chk_users_teacher_staff_fields;
@@ -376,13 +391,13 @@ comment on table public.users is
   'Accounts for Login/Register. CRUD and teacher approval are done in the administrator User Management UI only — the teacher role has no user management screen. Organisers/teachers own events.';
 comment on column public.users.id is 'Stable id used in session, URLs, QR payloads (ATTEND:userId:eventId).';
 comment on column public.users.public_id is 'Random 6-digit profile/user ID shown in app header.';
-comment on column public.users.email is 'Login identifier; unique.';
+comment on column public.users.email is 'Login identifier; unique. Register shows role-aware notice when email already exists (approved/pending/rejected).';
 comment on column public.users.password is 'Plaintext in demo app; use hashing in production.';
 comment on column public.users.role is 'administrator | organiser | student | teacher — routes and permissions.';
-comment on column public.users.approval_status is 'Teacher only: pending (self-register), approved/rejected (admin).';
+comment on column public.users.approval_status is 'Student/teacher approval: pending on self-register, approved/rejected by admin in User management; null for administrator/organiser.';
 comment on column public.users.phone is 'Teacher profile; required when role = teacher.';
-comment on column public.users.department is 'Summary line for lists/search; from school enrollment or legacy teacher text.';
-comment on column public.users.academic_track is 'junior_high | senior_high | college — Register.tsx / AdminUsers.tsx: button groups for school level, year/grade, and (college) program list. Rosters: JH (years 1–4 stored, UI Grade 7–10), SH (11–12), college (years 1–4 + program).';
+comment on column public.users.department is 'Summary line for lists/search; from Department (Register/Admin) or legacy teacher text.';
+comment on column public.users.academic_track is 'junior_high | senior_high | college — Register.tsx / AdminUsers.tsx: Track buttons, year/grade, and (college) program list. Rosters: JH (years 1–4 stored, UI Grade 7–10), SH (11–12), college (years 1–4 + program).';
 comment on column public.users.academic_year is 'JH: stored 1–4 maps to UI Grade 7–10; SH: 11–12 (Grade 11/12); college: 1–4 with 1st–Fourth year labels in app; idx_users_academic_roster matches app ordering.';
 comment on column public.users.academic_program is 'College program when track = college; values from COLLEGE_PROGRAMS in app (BS Accountancy, BS CS, BS IT, …), chosen via registration/admin program buttons; else null. Sub-sorts within college year on rosters.';
 comment on column public.users.employee_id is 'Teacher staff ID; required when role = teacher.';
@@ -398,7 +413,10 @@ comment on column public.events.status is 'draft | published | completed | cance
 comment on column public.events.qr_code_data is 'Event QR payload; StudentScan / eventMatchesScannedValue.';
 comment on column public.events.max_attendees is 'Optional cap from event forms.';
 comment on table public.attendance is
-  'One row per student per event: StudentScan (venue QR) or OrganiserScanAttendance (ATTEND:userId:eventId). Admin / teacher / organiser rosters join `users` for junior high / senior high / college grouping; app exports PDF/Excel with year/grade column from `users.academic_year` + track (`formatAcademicYearLevelLabel`), full roster or per-level (`attendanceExport.ts`).';
+  'One row per student per event: StudentScan (venue QR) or OrganiserScanAttendance (ATTEND:userId:eventId). `scanned_at` = time in; optional `time_out_at` = student checkout from History. Rosters join `users` for grouping; exports in `attendanceExport.ts`.';
+comment on column public.attendance.scanned_at is 'QR check-in (time in).';
+comment on column public.attendance.time_out_at is
+  'Optional checkout from student History; null until set. Must be >= scanned_at (`chk_attendance_time_out_after_scan`).';
 comment on column public.attendance.qr_code_data is 'Raw or normalised scanned string stored for audit.';
 comment on constraint uq_attendance_event_user on public.attendance is
   'Prevents duplicate attendance for same user+event (matches StudentScan / OrganiserScan duplicate checks).';
@@ -432,6 +450,192 @@ grant select, insert, update, delete on table public.users to anon, authenticate
 grant select, insert, update, delete on table public.events to anon, authenticated;
 grant select, insert, update, delete on table public.attendance to anon, authenticated;
 grant select, insert, update, delete on table public.event_registrations to anon, authenticated;
+
+-- --- 18_handle_new_auth_user.sql ---
+-- Sync Supabase Auth sign-ups to public.users (same id as auth.users.id).
+-- Fixes: Auth user exists but no profile row → login / Admin approval list breaks.
+-- Runs as SECURITY DEFINER so RLS does not block the insert.
+-- Only provisions rows when raw_user_meta_data.role is student or teacher (app registration).
+
+create or replace function public.handle_new_user()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  meta jsonb;
+  v_role user_role;
+  v_email text;
+  v_name text;
+  v_track text;
+  v_year text;
+  v_program text;
+  v_phone text;
+  v_emp text;
+  v_office text;
+  v_dept text;
+  yr_label text;
+  shape_ok boolean;
+begin
+  meta := coalesce(new.raw_user_meta_data, '{}'::jsonb);
+
+  if lower(coalesce(meta->>'role', '')) not in ('student', 'teacher') then
+    return new;
+  end if;
+
+  begin
+    v_role := (meta->>'role')::user_role;
+  exception
+    when others then
+      return new;
+  end;
+
+  if v_role not in ('student'::user_role, 'teacher'::user_role) then
+    return new;
+  end if;
+
+  v_email := lower(btrim(coalesce(new.email, '')));
+  if v_email = '' then
+    return new;
+  end if;
+
+  v_name := nullif(btrim(coalesce(meta->>'name', '')), '');
+  if v_name is null then
+    v_name := split_part(v_email, '@', 1);
+  end if;
+
+  v_track := nullif(btrim(meta->>'academic_track'), '');
+  v_year := nullif(btrim(meta->>'academic_year'), '');
+  v_program := nullif(btrim(meta->>'academic_program'), '');
+  v_phone := nullif(btrim(meta->>'phone'), '');
+  v_emp := nullif(btrim(meta->>'employee_id'), '');
+  v_office := nullif(btrim(meta->>'office_location'), '');
+
+  v_dept := null;
+  shape_ok := true;
+  if v_track is not null and v_year is not null then
+    shape_ok :=
+      (v_track = 'junior_high' and v_year in ('1', '2', '3', '4') and (v_program is null or btrim(v_program) = ''))
+      or (v_track = 'senior_high' and v_year in ('11', '12') and (v_program is null or btrim(v_program) = ''))
+      or (
+        v_track = 'college'
+        and v_year in ('1', '2', '3', '4')
+        and v_program is not null
+        and btrim(v_program) <> ''
+      );
+    if shape_ok then
+      if v_track = 'junior_high' then
+        v_dept :=
+          'Junior high — '
+          || case v_year
+            when '1' then 'Grade 7'
+            when '2' then 'Grade 8'
+            when '3' then 'Grade 9'
+            when '4' then 'Grade 10'
+          end;
+      elsif v_track = 'senior_high' then
+        v_dept :=
+          'Senior high — '
+          || case v_year
+            when '11' then 'Grade 11'
+            when '12' then 'Grade 12'
+          end;
+      else
+        yr_label :=
+          case v_year
+            when '1' then '1st — First year'
+            when '2' then '2nd — Second year'
+            when '3' then '3rd — Third year'
+            when '4' then '4th — Fourth year'
+          end;
+        v_dept := 'College — ' || v_program || ' — ' || yr_label;
+      end if;
+    else
+      v_track := null;
+      v_year := null;
+      v_program := null;
+      v_dept := null;
+    end if;
+  end if;
+
+  if v_track <> 'college' then
+    v_program := null;
+  end if;
+
+  if v_role = 'teacher'::user_role then
+    v_phone := coalesce(v_phone, 'Not set');
+    v_dept := coalesce(v_dept, 'General');
+    v_emp := coalesce(v_emp, 'TBD-' || left(replace(new.id::text, '-', ''), 24));
+  end if;
+
+  begin
+    insert into public.users (
+      id,
+      email,
+      name,
+      role,
+      password,
+      approval_status,
+      phone,
+      department,
+      employee_id,
+      office_location,
+      academic_track,
+      academic_year,
+      academic_program,
+      created_at
+    )
+    values (
+      new.id,
+      v_email,
+      v_name,
+      v_role,
+      'supabase-auth',
+      'pending'::teacher_approval_status,
+      case when v_role = 'teacher'::user_role then v_phone else null end,
+      v_dept,
+      case when v_role = 'teacher'::user_role then v_emp else null end,
+      v_office,
+      v_track,
+      v_year,
+      v_program,
+      coalesce(new.created_at, now())
+    )
+    on conflict (id) do update
+    set
+      email = excluded.email,
+      name = excluded.name,
+      role = excluded.role,
+      password = excluded.password,
+      approval_status = excluded.approval_status,
+      phone = excluded.phone,
+      department = excluded.department,
+      employee_id = excluded.employee_id,
+      office_location = excluded.office_location,
+      academic_track = excluded.academic_track,
+      academic_year = excluded.academic_year,
+      academic_program = excluded.academic_program;
+  exception
+    when unique_violation then
+      -- e.g. email already owned by another profile id; do not fail Auth signup
+      null;
+  end;
+
+  return new;
+end;
+$$;
+
+comment on function public.handle_new_user() is
+  'After insert on auth.users: creates public.users row (pending) for student/teacher self-registration metadata; id matches auth.users.id.';
+
+drop trigger if exists on_auth_user_created on auth.users;
+
+create trigger on_auth_user_created
+  after insert on auth.users
+  for each row
+  execute function public.handle_new_user();
+
 
 -- --- 14_student_event_reminder_functions.sql ---
 -- Optional RPC mirror of student Reminders page (see src/utils/studentEventReminders.ts).
@@ -504,8 +708,11 @@ grant execute on function public.student_reminders_count(text) to anon, authenti
 
 -- --- 16_attendance_enrollment_view.sql ---
 -- Reporting helper: attendance joined to users.academic_* (roster grouping in app).
+-- App PDF/Excel exports: "Department" = enrollment line (year inside text); no email in export; name from users.name.
 
-create or replace view public.v_attendance_with_user_enrollment as
+drop view if exists public.v_attendance_with_user_enrollment;
+
+create view public.v_attendance_with_user_enrollment as
 select
   a.id as attendance_id,
   a.event_id,
@@ -513,6 +720,7 @@ select
   a.user_name,
   a.user_email,
   a.scanned_at,
+  a.time_out_at,
   a.qr_code_data,
   u.academic_track,
   u.academic_year,
@@ -566,7 +774,19 @@ values
     now(),
     'student1919'
   )
-on conflict (id) do nothing;
+on conflict (id) do update set
+  public_id = excluded.public_id,
+  email = excluded.email,
+  name = excluded.name,
+  role = excluded.role,
+  approval_status = excluded.approval_status,
+  phone = excluded.phone,
+  department = excluded.department,
+  employee_id = excluded.employee_id,
+  academic_track = excluded.academic_track,
+  academic_year = excluded.academic_year,
+  academic_program = excluded.academic_program,
+  password = excluded.password;
 
 -- Drop legacy multi-event demo rows (safe if ids never existed)
 delete from public.attendance where event_id in ('evt-2', 'evt-3', 'evt-4', 'evt-5', 'evt-6');

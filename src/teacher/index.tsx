@@ -7,6 +7,7 @@ import { TeacherEvents } from './TeacherEvents';
 import { TeacherAnalytics } from './TeacherAnalytics';
 import { TeacherProfile } from './TeacherProfile';
 import { TeacherEventAttendancePage } from '@/components/EventAttendanceRoster';
+import { effectiveUserApproval } from '@/utils/userApproval';
 
 export function TeacherRoutes() {
   const { user, isAuthenticated, logout } = useAuth();
@@ -15,7 +16,7 @@ export function TeacherRoutes() {
   const teacherBlocked =
     isAuthenticated &&
     user?.role === 'teacher' &&
-    (user.approvalStatus ?? 'approved') !== 'approved';
+    effectiveUserApproval(user) !== 'approved';
 
   useEffect(() => {
     if (!teacherBlocked || !user) return;

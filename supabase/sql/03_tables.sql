@@ -63,6 +63,7 @@ create table if not exists public.attendance (
   user_name text not null,
   user_email text not null,
   scanned_at timestamptz not null default now(),
+  time_out_at timestamptz null,
   qr_code_data text not null,
   constraint uq_attendance_event_user unique (event_id, user_id)
 );

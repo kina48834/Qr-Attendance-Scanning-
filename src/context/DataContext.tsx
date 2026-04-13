@@ -14,8 +14,10 @@ import {
   fetchAttendance,
   fetchEvents,
   fetchRegistrations,
+  fetchUserByEmailForLegacyLogin,
   fetchUsers,
   insertAttendance,
+  setAttendanceTimeOut,
   insertEvent,
   insertRegistration,
   insertUser,
@@ -88,6 +90,8 @@ interface DataContextType {
   ) => void | Promise<void>;
   deleteUser: (id: string) => void | Promise<void>;
   recordAttendance: (record: Omit<AttendanceRecord, 'id' | 'scannedAt'>) => void | Promise<void>;
+  /** Student: record checkout for own attendance row (once). */
+  recordAttendanceTimeOut: (attendanceId: string, userId: string) => void | Promise<void>;
   registerForEvent: (eventId: string, userId: string) => void | Promise<void>;
   getStats: () => DashboardStats;
   getAnalytics: () => AnalyticsData;
@@ -95,6 +99,21 @@ interface DataContextType {
 }
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
+
+function duplicateRegistrationMessage(existing: User): string {
+  const status = existing.approvalStatus ?? 'approved';
+  if (existing.role === 'student' || existing.role === 'teacher') {
+    const roleLabel = existing.role === 'teacher' ? 'teacher' : 'student';
+    if (status === 'pending') {
+      return `This email is already registered as a ${roleLabel} account and is still pending administrator approval. You can sign in once the account is approved.`;
+    }
+    if (status === 'rejected') {
+      return `This ${roleLabel} registration was rejected by administration. Please contact admin if you want the account to be reviewed again.`;
+    }
+    return `This email is already registered and approved as a ${roleLabel} account. Please sign in instead of registering again.`;
+  }
+  return 'This email is already registered. Please sign in instead of creating another account.';
+}
 
 export function DataProvider({ children }: { children: ReactNode }) {
   const [events, setEvents] = useState<Event[]>([]);
@@ -180,8 +199,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
         throw new Error('Invalid registration role.');
       }
       const emailNorm = normalizeAuthEmail(payload.email);
-      if (users.some((u) => u.email.toLowerCase() === emailNorm)) {
-        throw new Error('A user with this email already exists.');
+      const existing = users.find((u) => u.email.toLowerCase() === emailNorm);
+      if (existing) {
+        throw new Error(duplicateRegistrationMessage(existing));
       }
       const passwordTrimmed = payload.password.trim();
       const { data: authData, error: authError } = await authSignUp(emailNorm, passwordTrimmed, {
@@ -196,7 +216,18 @@ export function DataProvider({ children }: { children: ReactNode }) {
           office_location: payload.officeLocation?.trim() ?? '',
         }),
       });
-      if (authError) throw new Error(authError.message);
+      if (authError) {
+        const existingByEmail = users.find((u) => u.email.toLowerCase() === emailNorm);
+        if (existingByEmail) throw new Error(duplicateRegistrationMessage(existingByEmail));
+        let fromDb: User | null = null;
+        try {
+          fromDb = await fetchUserByEmailForLegacyLogin(emailNorm);
+        } catch {
+          /* ignore lookup errors and fall back to auth error text */
+        }
+        if (fromDb) throw new Error(duplicateRegistrationMessage(fromDb));
+        throw new Error(authError.message);
+      }
       const uid = authData.user?.id;
       if (!uid) {
         throw new Error(
@@ -219,9 +250,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
                   phone: payload.phone,
                   employeeId: payload.employeeId,
                   officeLocation: payload.officeLocation,
-                  approvalStatus: 'pending' as const,
                 }
               : {}),
+            approvalStatus: 'pending' as const,
           },
           { id: uid }
         );
@@ -275,6 +306,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
     },
     []
   );
+
+  const recordAttendanceTimeOut = useCallback(async (attendanceId: string, userId: string) => {
+    const updated = await setAttendanceTimeOut(attendanceId, userId);
+    setAttendance((prev) => prev.map((a) => (a.id === attendanceId ? updated : a)));
+  }, []);
 
   const registerForEvent = useCallback(
     async (eventId: string, userId: string) => {
@@ -345,6 +381,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         updateUser,
         deleteUser,
         recordAttendance,
+        recordAttendanceTimeOut,
         registerForEvent,
         getStats,
         getAnalytics,

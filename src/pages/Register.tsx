@@ -78,11 +78,17 @@ export function Register() {
           ...(teacherOffice.trim() && { officeLocation: teacherOffice.trim() }),
         }),
       });
-      if (newUser.role === 'teacher' && newUser.approvalStatus === 'pending') {
+      if (
+        (newUser.role === 'teacher' || newUser.role === 'student') &&
+        newUser.approvalStatus === 'pending'
+      ) {
         await authSignOut();
         navigate('/login', {
           replace: true,
-          state: { teacherRegisteredPending: true },
+          state:
+            newUser.role === 'teacher'
+              ? { teacherRegisteredPending: true }
+              : { studentRegisteredPending: true },
         });
         return;
       }
@@ -114,15 +120,23 @@ export function Register() {
             <ChevronDown className="h-4 w-4 shrink-0 text-white/45 transition-transform group-open:rotate-180" aria-hidden />
           </summary>
           <div className="border-t border-white/10 px-3 pb-3 pt-2 text-[13px] leading-snug text-white/75">
-            Valid email required. Teachers are reviewed before sign-in; students can start immediately.
+            Valid email required. Student and teacher registrations are reviewed before first sign-in.
           </div>
         </details>
 
         <form onSubmit={handleSubmit} className="relative z-[1] mt-4 space-y-4">
           {error && (
-            <div className={landingAlertError}>
-              <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-red-200" aria-hidden />
-              <span>{error}</span>
+            <div className={`${/already registered|pending administrator approval|rejected by administration/i.test(error) ? landingAlertWarn : landingAlertError}`}>
+              <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-200" aria-hidden />
+              <div className="space-y-1">
+                <p className="font-semibold">Registration notice</p>
+                <p>{error}</p>
+                {/already registered|approved as|pending administrator approval|rejected by administration/i.test(error) && (
+                  <Link to="/login" className="inline-flex text-xs font-semibold underline underline-offset-2">
+                    Go to sign in
+                  </Link>
+                )}
+              </div>
             </div>
           )}
 
@@ -172,12 +186,15 @@ export function Register() {
                 Teacher
               </label>
             </div>
-            <p className="mt-1.5 text-[11px] text-white/50">Teachers need admin approval before first sign-in.</p>
-            {accountRole === 'teacher' && (
+            <p className="mt-1.5 text-[11px] text-white/50">
+              Student and teacher accounts stay pending until approved by an administrator.
+            </p>
+            {(accountRole === 'teacher' || accountRole === 'student') && (
               <div className={`${landingAlertWarn} mt-2`}>
                 <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-200" aria-hidden />
                 <span>
-                  Account stays <strong>pending</strong> until an administrator approves it in Admin → Users.
+                  Your {accountRole} account stays <strong>pending</strong> until an administrator approves it in
+                  Admin → Users.
                 </span>
               </div>
             )}
@@ -216,7 +233,7 @@ export function Register() {
               />
             </div>
             <div className="rounded-lg border border-white/10 bg-white/[0.04] p-3">
-              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-white/55">School enrollment</p>
+              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-white/55">Department</p>
               <AcademicEnrollmentFields
                 idPrefix="register-academic"
                 variant="landing"

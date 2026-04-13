@@ -50,10 +50,10 @@ update public.events
 set end_date = start_date
 where end_date < start_date;
 
--- Users: approval_status is only meaningful for teachers (Admin clears it when role changes)
+-- Users: approval_status is used for student/teacher only (Admin clears it for admin/organiser)
 update public.users
 set approval_status = null
-where role is distinct from 'teacher'::user_role
+where role not in ('teacher'::user_role, 'student'::user_role)
   and approval_status is not null;
 
 -- Users: teachers must have non-empty phone, department, employee_id (matches Register + AdminUsers)
@@ -81,11 +81,11 @@ alter table public.events drop constraint if exists chk_events_end_after_start;
 alter table public.events
   add constraint chk_events_end_after_start check (end_date >= start_date);
 
--- Users: only teachers use approval_status
+-- Users: only students/teachers use approval_status
 alter table public.users drop constraint if exists chk_users_approval_teacher_only;
 alter table public.users
   add constraint chk_users_approval_teacher_only check (
-    (role = 'teacher'::user_role) or (approval_status is null)
+    (role in ('teacher'::user_role, 'student'::user_role)) or (approval_status is null)
   );
 
 -- Users: teachers must have phone, department, employee_id

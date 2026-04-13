@@ -1,5 +1,4 @@
 import type { AttendanceRecord, User } from '@/types';
-import { formatAcademicYearLevelLabel } from '@/constants/academicEnrollment';
 import type { AttendanceExportRecord, MultiEventAttendanceRow } from '@/utils/attendanceExport';
 import { formatUserAcademicLine } from '@/utils/academicProfileDisplay';
 import {
@@ -31,6 +30,21 @@ export function enrollmentLabelForAttendanceRow(u: User | undefined): string {
   if (!u) return 'Enrollment not on file';
   const line = formatUserAcademicLine(u);
   return line ?? 'Enrollment not on file';
+}
+
+/** PDF/Excel exports: profile name only; never show email as the display name. */
+export function exportDisplayName(u: User | undefined, record: AttendanceRecord): string {
+  const fromProfile = u?.name?.trim();
+  if (fromProfile) return fromProfile;
+  const snap = record.userName?.trim() ?? '';
+  if (!snap) return '—';
+  if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/i.test(snap)) return '—';
+  return snap;
+}
+
+/** Roster / PDF “Department” column: same as registration enrollment line (year level is already inside). */
+export function departmentLabelForExport(u: User | undefined): string {
+  return enrollmentLabelForAttendanceRow(u);
 }
 
 /**
@@ -146,11 +160,10 @@ export function recordsForAttendanceTrackSection<T extends AttendanceRecord>(
       n += 1;
       const u = resolveUserForAttendance(users, r as AttendanceRecord);
       out.push({
-        userName: r.userName,
-        userEmail: r.userEmail,
+        userName: exportDisplayName(u, r as AttendanceRecord),
         scannedAt: r.scannedAt,
-        yearLevel: formatAcademicYearLevelLabel(u ?? {}),
-        enrollment: enrollmentLabelForAttendanceRow(u),
+        timeOutAt: r.timeOutAt,
+        department: departmentLabelForExport(u),
         rosterIndexInLevel: n,
       });
     }
@@ -171,11 +184,10 @@ export function multiEventRowsForAttendanceTrackSection(
       const u = resolveUserForAttendance(users, r);
       out.push({
         eventTitle: r.eventTitle,
-        userName: r.userName,
-        userEmail: r.userEmail,
+        userName: exportDisplayName(u, r),
         scannedAt: r.scannedAt,
-        yearLevel: formatAcademicYearLevelLabel(u ?? {}),
-        enrollment: enrollmentLabelForAttendanceRow(u),
+        timeOutAt: r.timeOutAt,
+        department: departmentLabelForExport(u),
         rosterIndexInLevel: n,
       });
     }

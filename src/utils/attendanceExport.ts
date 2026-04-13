@@ -20,25 +20,33 @@ function formatScanned(iso: string): string {
   }
 }
 
+function formatTimeOut(iso: string | null | undefined): string {
+  if (iso == null || iso === '') return '—';
+  try {
+    return format(new Date(iso), 'MMM d, yyyy HH:mm');
+  } catch {
+    return '—';
+  }
+}
+
 export type EventAttendanceExportMeta = {
   title: string;
   location?: string;
   startDate?: string;
   organiserName?: string;
-  /** When set, export is limited to one school level; shown in file header and filename */
+  /** When set, export is limited to one track (junior / senior / college); shown in file header and filename */
   segmentScope?: AttendanceExportTrackScope;
 };
 
 export type { AttendanceExportTrackScope };
 
 export type AttendanceExportRecord = {
+  /** Display name from profile when available (exports omit email). */
   userName: string;
-  userEmail: string;
   scannedAt: string;
-  /** Grade 7–10, Grade 11/12, or college year label from `users.academic_*` */
-  yearLevel?: string;
-  /** Junior / senior high / college line from `users.academic_*` when available */
-  enrollment?: string;
+  timeOutAt?: string | null;
+  /** Department / enrollment line from registration (`users.department` + academic_*); includes year level in the text. */
+  department?: string;
   /** When set (roster exports), # column restarts at 1 per junior / senior / college block */
   rosterIndexInLevel?: number;
 };
@@ -84,17 +92,28 @@ export function exportSingleEventAttendancePdf(meta: EventAttendanceExportMeta, 
 
   autoTable(doc, {
     startY: y + 4,
-    head: [['#', 'Name', 'Email', 'Year level', 'Enrollment', 'Scanned at']],
+    head: [['#', 'Name', 'Department', 'Time in', 'Time out']],
     body: rows.map((r, i) => [
       String(r.rosterIndexInLevel ?? i + 1),
       r.userName,
-      r.userEmail,
-      r.yearLevel ?? '—',
-      r.enrollment ?? '—',
+      r.department ?? '—',
       formatScanned(r.scannedAt),
+      formatTimeOut(r.timeOutAt),
     ]),
-    styles: { fontSize: 7.5, cellPadding: 2 },
-    headStyles: { fillColor: [37, 99, 235], textColor: 255, fontStyle: 'bold' },
+    styles: { fontSize: 7.5, cellPadding: 2, halign: 'left', valign: 'middle' },
+    headStyles: {
+      fillColor: [37, 99, 235],
+      textColor: 255,
+      fontStyle: 'bold',
+      halign: 'center',
+    },
+    columnStyles: {
+      0: { halign: 'center', cellWidth: 12 },
+      1: { cellWidth: 42 },
+      2: { cellWidth: 62 },
+      3: { halign: 'center', cellWidth: 28 },
+      4: { halign: 'center', cellWidth: 28 },
+    },
     alternateRowStyles: { fillColor: [248, 250, 252] },
     margin: { left: margin, right: margin },
     showHead: 'everyPage',
@@ -123,14 +142,13 @@ export function exportSingleEventAttendanceXlsx(meta: EventAttendanceExportMeta,
   metaRows.push(['Generated', format(new Date(), 'MMM d, yyyy HH:mm')]);
   metaRows.push(['Total students', rows.length]);
   metaRows.push([]);
-  const tableHead: (string | number)[][] = [['#', 'Name', 'Email', 'Year level', 'Enrollment', 'Scanned at']];
+  const tableHead: (string | number)[][] = [['#', 'Name', 'Department', 'Time in', 'Time out']];
   const tableBody = rows.map((r, i) => [
     r.rosterIndexInLevel ?? i + 1,
     r.userName,
-    r.userEmail,
-    r.yearLevel ?? '—',
-    r.enrollment ?? '—',
+    r.department ?? '—',
     formatScanned(r.scannedAt),
+    formatTimeOut(r.timeOutAt),
   ]);
   const aoa = [...header, ...metaRows, ...tableHead, ...tableBody];
   const ws = XLSX.utils.aoa_to_sheet(aoa);
@@ -150,9 +168,9 @@ function sortMultiEventRows(rows: MultiEventAttendanceRow[]): MultiEventAttendan
     rows.length > 0 && rows.every((r) => r.rosterIndexInLevel != null);
   if (orderedByRoster) return [...rows];
   return [...rows].sort((a, b) => {
-    const ea = a.enrollment ?? '';
-    const eb = b.enrollment ?? '';
-    if (ea !== eb) return ea.localeCompare(eb);
+    const da = a.department ?? '';
+    const db = b.department ?? '';
+    if (da !== db) return da.localeCompare(db);
     return (
       a.eventTitle.localeCompare(b.eventTitle) || new Date(a.scannedAt).getTime() - new Date(b.scannedAt).getTime()
     );
@@ -188,27 +206,32 @@ export function exportMultiEventAttendancePdf(
 
   autoTable(doc, {
     startY: y,
-    head: [['#', 'Event', 'Name', 'Email', 'Year level', 'Enrollment', 'Scanned at']],
+    head: [['#', 'Event', 'Name', 'Department', 'Time in', 'Time out']],
     body: sorted.map((r, i) => [
       String(r.rosterIndexInLevel ?? i + 1),
       r.eventTitle,
       r.userName,
-      r.userEmail,
-      r.yearLevel ?? '—',
-      r.enrollment ?? '—',
+      r.department ?? '—',
       formatScanned(r.scannedAt),
+      formatTimeOut(r.timeOutAt),
     ]),
-    styles: { fontSize: 7, cellPadding: 1.8 },
-    headStyles: { fillColor: [37, 99, 235], textColor: 255, fontStyle: 'bold' },
+    styles: { fontSize: 7, cellPadding: 1.8, halign: 'left', valign: 'middle' },
+    headStyles: {
+      fillColor: [37, 99, 235],
+      textColor: 255,
+      fontStyle: 'bold',
+      halign: 'center',
+    },
     alternateRowStyles: { fillColor: [248, 250, 252] },
     margin: { left: margin, right: margin },
     showHead: 'everyPage',
     columnStyles: {
-      1: { cellWidth: 38 },
-      2: { cellWidth: 30 },
-      3: { cellWidth: 42 },
-      4: { cellWidth: 28 },
-      5: { cellWidth: 44 },
+      0: { halign: 'center', cellWidth: 10 },
+      1: { cellWidth: 36 },
+      2: { cellWidth: 28 },
+      3: { cellWidth: 52 },
+      4: { halign: 'center', cellWidth: 26 },
+      5: { halign: 'center', cellWidth: 26 },
     },
   });
 
@@ -230,15 +253,14 @@ export function exportMultiEventAttendanceXlsx(
   headMeta.push(['Total rows', sorted.length], []);
   const aoa: (string | number)[][] = [
     ...headMeta,
-    ['#', 'Event', 'Name', 'Email', 'Year level', 'Enrollment', 'Scanned at'],
+    ['#', 'Event', 'Name', 'Department', 'Time in', 'Time out'],
     ...sorted.map((r, i) => [
       r.rosterIndexInLevel ?? i + 1,
       r.eventTitle,
       r.userName,
-      r.userEmail,
-      r.yearLevel ?? '—',
-      r.enrollment ?? '—',
+      r.department ?? '—',
       formatScanned(r.scannedAt),
+      formatTimeOut(r.timeOutAt),
     ]),
   ];
   const ws = XLSX.utils.aoa_to_sheet(aoa);

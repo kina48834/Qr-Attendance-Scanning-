@@ -1,7 +1,14 @@
 -- Reporting helper: attendance rows joined to `users.academic_*` for roster exports / analytics.
 -- The app resolves enrollment in the client from `fetchUsers` + `fetchAttendance`; this view mirrors that join in SQL.
+-- PDF/Excel attendance exports (app): column "Department" uses the same line as registration enrollment (`users.department` / academic_* via formatUserAcademicLine); year level is inside that text (no separate year column).
+-- Exports omit student email; display name comes from `users.name` when the row is joined.
+--
+-- If the view already exists without `time_out_at`, `CREATE OR REPLACE VIEW` cannot insert a column in the middle
+-- (PostgreSQL error: cannot change name of view column "qr_code_data" to "time_out_at"). Drop first, then create.
 
-create or replace view public.v_attendance_with_user_enrollment as
+drop view if exists public.v_attendance_with_user_enrollment;
+
+create view public.v_attendance_with_user_enrollment as
 select
   a.id as attendance_id,
   a.event_id,
@@ -9,6 +16,7 @@ select
   a.user_name,
   a.user_email,
   a.scanned_at,
+  a.time_out_at,
   a.qr_code_data,
   u.academic_track,
   u.academic_year,

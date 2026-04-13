@@ -17,7 +17,7 @@ type Props = {
   disabled?: boolean;
 };
 
-/** Shared pill / chip styling — school level, grades, years, programs */
+/** Shared pill / chip styling — track, grades, years, programs */
 function choiceButtonClass(
   selected: boolean,
   variant: 'landing' | 'light',
@@ -73,7 +73,7 @@ export function AcademicEnrollmentFields({ idPrefix, value, onChange, variant, d
     <div className="space-y-5">
       <div role="group" aria-labelledby={`${idPrefix}-track-label`}>
         <p id={`${idPrefix}-track-label`} className={labelClass}>
-          School level
+          Track
         </p>
         <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-3">
           {ACADEMIC_TRACK_OPTIONS.map((o) => {
