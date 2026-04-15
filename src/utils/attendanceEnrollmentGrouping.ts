@@ -1,6 +1,7 @@
 import type { AttendanceRecord, User } from '@/types';
 import type { AttendanceExportRecord, MultiEventAttendanceRow } from '@/utils/attendanceExport';
 import { formatAcademicYearLevelLabel } from '@/constants/academicEnrollment';
+import type { EnrollmentSortDir } from '@/utils/academicEnrollmentOrdering';
 import { formatUserAcademicLine } from '@/utils/academicProfileDisplay';
 import {
   compareTrackIds,
@@ -41,6 +42,38 @@ export function exportDisplayName(u: User | undefined, record: AttendanceRecord)
   if (!snap) return '—';
   if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/i.test(snap)) return '—';
   return snap;
+}
+
+export function sortAttendanceRecordsByDisplayName(
+  records: AttendanceRecord[],
+  users: User[],
+  dir: EnrollmentSortDir
+): AttendanceRecord[] {
+  return [...records].sort((a, b) => {
+    const ua = resolveUserForAttendance(users, a);
+    const ub = resolveUserForAttendance(users, b);
+    const na = exportDisplayName(ua, a);
+    const nb = exportDisplayName(ub, b);
+    const c = na.localeCompare(nb, undefined, { sensitivity: 'base' });
+    return dir === 'asc' ? c : -c;
+  });
+}
+
+export function sortAttendanceWithEventByDisplayName(
+  rows: AttendanceRecordWithEvent[],
+  users: User[],
+  dir: EnrollmentSortDir
+): AttendanceRecordWithEvent[] {
+  return [...rows].sort((a, b) => {
+    const ua = resolveUserForAttendance(users, a);
+    const ub = resolveUserForAttendance(users, b);
+    const na = exportDisplayName(ua, a);
+    const nb = exportDisplayName(ub, b);
+    let cmp = na.localeCompare(nb, undefined, { sensitivity: 'base' });
+    if (cmp !== 0) return dir === 'asc' ? cmp : -cmp;
+    cmp = a.eventTitle.localeCompare(b.eventTitle, undefined, { sensitivity: 'base' });
+    return dir === 'asc' ? cmp : -cmp;
+  });
 }
 
 /** Roster / PDF “Department” column: same as registration enrollment line. */

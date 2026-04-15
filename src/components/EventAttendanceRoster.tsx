@@ -1,4 +1,4 @@
-import { Fragment, useMemo, useCallback, type ReactNode } from 'react';
+import { Fragment, useMemo, useCallback, useState, type ReactNode } from 'react';
 import { Link, Navigate, useParams } from 'react-router-dom';
 import { format } from 'date-fns';
 import { ArrowLeft, ClipboardList, Mail, User } from 'lucide-react';
@@ -7,7 +7,17 @@ import { PageHeader, RoleBadge } from '@/components/PageHeader';
 import { QRCodeDisplay } from '@/components/QR/QRCodeDisplay';
 import { eventStatusBadgeClass } from '@/utils/eventStatusStyles';
 import { AttendanceExportButtons } from '@/components/AttendanceExportButtons';
-import { isAttendanceExportTrackScope, type AttendanceExportTrackScope } from '@/utils/academicEnrollmentOrdering';
+import { DepartmentSortToggle } from '@/components/DepartmentSortToggle';
+import { SectionCollapseToggle } from '@/components/SectionCollapseToggle';
+import {
+  enrollmentSubgroupUiKey,
+  flipEnrollmentSortDir,
+  isAttendanceExportTrackScope,
+  sortSubgroupBucketsByKey,
+  type AttendanceExportTrackScope,
+  type EnrollmentSortDir,
+  type EnrollmentTrackId,
+} from '@/utils/academicEnrollmentOrdering';
 import { getEventQrCodeData } from '@/utils/attendanceQR';
 import {
   buildAttendanceTrackSections,
@@ -16,6 +26,7 @@ import {
   recordsForAttendanceRows,
   recordsForAttendanceTrackSection,
   resolveUserForAttendance,
+  sortAttendanceRecordsByDisplayName,
 } from '@/utils/attendanceEnrollmentGrouping';
 
 type EventAttendanceRosterProps = {
@@ -28,6 +39,10 @@ export function EventAttendanceRoster({ eventsListPath, badge }: EventAttendance
   const { eventId } = useParams<{ eventId: string }>();
   const { events, attendance, users } = useData();
   const event = events.find((e) => e.id === eventId);
+  const [trackSubgroupDir, setTrackSubgroupDir] = useState<Partial<Record<EnrollmentTrackId, EnrollmentSortDir>>>({});
+  const [subgroupNameDir, setSubgroupNameDir] = useState<Record<string, EnrollmentSortDir>>({});
+  const [collapsedTracks, setCollapsedTracks] = useState<Set<EnrollmentTrackId>>(() => new Set());
+  const [collapsedSubgroups, setCollapsedSubgroups] = useState<Set<string>>(() => new Set());
 
   const rows = useMemo(() => {
     if (!eventId) return [];
@@ -37,6 +52,20 @@ export function EventAttendanceRoster({ eventsListPath, badge }: EventAttendance
   }, [eventId, attendance]);
 
   const trackSections = useMemo(() => buildAttendanceTrackSections(rows, users), [rows, users]);
+
+  const displayTrackSections = useMemo(() => {
+    return trackSections.map((sec) => ({
+      ...sec,
+      subgroups: sortSubgroupBucketsByKey(sec.subgroups, trackSubgroupDir[sec.trackId] ?? 'asc').map((g) => ({
+        ...g,
+        items: sortAttendanceRecordsByDisplayName(
+          g.items,
+          users,
+          subgroupNameDir[enrollmentSubgroupUiKey(sec.trackId, g.subgroupKey)] ?? 'asc'
+        ),
+      })),
+    }));
+  }, [trackSections, users, trackSubgroupDir, subgroupNameDir]);
 
   const exportRecords = useMemo(() => {
     const out = [];
@@ -86,6 +115,25 @@ export function EventAttendanceRoster({ eventsListPath, badge }: EventAttendance
     },
     [exportMeta, trackSections, users]
   );
+
+  const toggleTrackCollapsed = (trackId: EnrollmentTrackId) => {
+    setCollapsedTracks((prev) => {
+      const next = new Set(prev);
+      if (next.has(trackId)) next.delete(trackId);
+      else next.add(trackId);
+      return next;
+    });
+  };
+
+  const toggleSubgroupCollapsed = (trackId: EnrollmentTrackId, subgroupKey: string) => {
+    const k = enrollmentSubgroupUiKey(trackId, subgroupKey);
+    setCollapsedSubgroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(k)) next.delete(k);
+      else next.add(k);
+      return next;
+    });
+  };
 
   const exportSingleCollegeProgram = useCallback(
     async (programLabel: string, rowsForProgram: typeof rows, kind: 'pdf' | 'xlsx') => {
@@ -180,17 +228,37 @@ export function EventAttendanceRoster({ eventsListPath, badge }: EventAttendance
           </div>
         ) : (
           <div className="divide-y divide-slate-100">
-            {trackSections.map((sec) => {
+            {displayTrackSections.map((sec) => {
               const totalInTrack = sec.subgroups.reduce((acc, g) => acc + g.items.length, 0);
               const collegeProgramGroups =
                 sec.trackId === 'college' ? collegeProgramGroupsForAttendanceSection(sec, users) : [];
               let seqInTrack = 0;
+              const trackExpanded = !collapsedTracks.has(sec.trackId);
               return (
                 <Fragment key={sec.trackId}>
                   <div className="sticky top-0 z-[1] border-b border-slate-300 bg-slate-200/95 px-4 py-3 sm:px-5">
                     <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
                       <div className="min-w-0">
-                        <p className="text-sm font-bold uppercase tracking-wide text-slate-800">{sec.sectionTitle}</p>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <SectionCollapseToggle
+                            compact
+                            expanded={trackExpanded}
+                            onToggle={() => toggleTrackCollapsed(sec.trackId)}
+                            label={sec.sectionTitle}
+                          />
+                          <p className="text-sm font-bold uppercase tracking-wide text-slate-800">{sec.sectionTitle}</p>
+                          <DepartmentSortToggle
+                            compact
+                            direction={trackSubgroupDir[sec.trackId] ?? 'asc'}
+                            onToggle={() =>
+                              setTrackSubgroupDir((prev) => ({
+                                ...prev,
+                                [sec.trackId]: flipEnrollmentSortDir(prev[sec.trackId] ?? 'asc'),
+                              }))
+                            }
+                            label={`${sec.sectionTitle} department order`}
+                          />
+                        </div>
                         <p className="text-xs text-slate-600 tabular-nums mt-0.5">
                           {totalInTrack} student{totalInTrack === 1 ? '' : 's'} — numbered 1–{totalInTrack} in this level
                         </p>
@@ -213,7 +281,7 @@ export function EventAttendanceRoster({ eventsListPath, badge }: EventAttendance
                         />
                       )}
                     </div>
-                    {sec.trackId === 'college' && collegeProgramGroups.length > 0 && (
+                    {trackExpanded && sec.trackId === 'college' && collegeProgramGroups.length > 0 && (
                       <div className="mt-2 flex flex-wrap items-center gap-1.5">
                         {collegeProgramGroups.map((pg) => (
                           <AttendanceExportButtons
@@ -232,12 +300,43 @@ export function EventAttendanceRoster({ eventsListPath, badge }: EventAttendance
                       </div>
                     )}
                   </div>
-                  {sec.subgroups.map((g) => (
+                  {trackExpanded &&
+                    sec.subgroups.map((g) => {
+                      const sgKey = enrollmentSubgroupUiKey(sec.trackId, g.subgroupKey);
+                      const subgroupExpanded = !collapsedSubgroups.has(sgKey);
+                      return (
                     <Fragment key={g.subgroupKey}>
                       <div className="sticky top-0 z-[1] border-b border-slate-200 bg-slate-100/95 px-4 py-2.5 sm:px-5 pl-6 sm:pl-8">
-                        <p className="text-xs font-semibold uppercase tracking-wide text-slate-600">{g.label}</p>
-                        <p className="text-xs text-slate-500 tabular-nums">{g.items.length} in this group</p>
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <div className="flex min-w-0 flex-1 items-center gap-2">
+                            <SectionCollapseToggle
+                              compact
+                              expanded={subgroupExpanded}
+                              onToggle={() => toggleSubgroupCollapsed(sec.trackId, g.subgroupKey)}
+                              label={g.label}
+                            />
+                            <div>
+                              <p className="text-xs font-semibold uppercase tracking-wide text-slate-600">{g.label}</p>
+                              <p className="text-xs text-slate-500 tabular-nums">{g.items.length} in this group</p>
+                            </div>
+                          </div>
+                          <DepartmentSortToggle
+                            compact
+                            direction={
+                              subgroupNameDir[enrollmentSubgroupUiKey(sec.trackId, g.subgroupKey)] ?? 'asc'
+                            }
+                            onToggle={() => {
+                              const k = enrollmentSubgroupUiKey(sec.trackId, g.subgroupKey);
+                              setSubgroupNameDir((prev) => ({
+                                ...prev,
+                                [k]: flipEnrollmentSortDir(prev[k] ?? 'asc'),
+                              }));
+                            }}
+                            label={`${g.label} name order`}
+                          />
+                        </div>
                       </div>
+                      {subgroupExpanded && (
                       <ol className="divide-y divide-slate-100">
                         {g.items.map((r) => {
                           seqInTrack += 1;
@@ -276,8 +375,10 @@ export function EventAttendanceRoster({ eventsListPath, badge }: EventAttendance
                           );
                         })}
                       </ol>
+                      )}
                     </Fragment>
-                  ))}
+                      );
+                    })}
                 </Fragment>
               );
             })}

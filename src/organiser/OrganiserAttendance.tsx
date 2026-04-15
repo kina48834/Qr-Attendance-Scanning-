@@ -10,9 +10,16 @@ import { format } from 'date-fns';
 import { Users, QrCode } from 'lucide-react';
 import { PageHeader, RoleBadge } from '@/components/PageHeader';
 import { AttendanceExportButtons } from '@/components/AttendanceExportButtons';
+import { DepartmentSortToggle } from '@/components/DepartmentSortToggle';
+import { SectionCollapseToggle } from '@/components/SectionCollapseToggle';
 import {
+  enrollmentSubgroupUiKey,
+  flipEnrollmentSortDir,
   isAttendanceExportTrackScope,
+  sortSubgroupBucketsByKey,
   type AttendanceExportTrackScope,
+  type EnrollmentSortDir,
+  type EnrollmentTrackId,
 } from '@/utils/academicEnrollmentOrdering';
 import {
   buildAttendanceTrackSections,
@@ -26,6 +33,8 @@ import {
   recordsForAttendanceRows,
   recordsForAttendanceTrackSection,
   resolveUserForAttendance,
+  sortAttendanceRecordsByDisplayName,
+  sortAttendanceWithEventByDisplayName,
 } from '@/utils/attendanceEnrollmentGrouping';
 
 export function OrganiserAttendance() {
@@ -35,6 +44,53 @@ export function OrganiserAttendance() {
   const { events, getEventAttendance, attendance: allAttendance, users } = useData();
   const [selectedEventId, setSelectedEventId] = useState<string | null>(eventId);
   const [eventSearch, setEventSearch] = useState('');
+  const [selectedTrackSubgroupDir, setSelectedTrackSubgroupDir] = useState<
+    Partial<Record<EnrollmentTrackId, EnrollmentSortDir>>
+  >({});
+  const [selectedSubgroupNameDir, setSelectedSubgroupNameDir] = useState<Record<string, EnrollmentSortDir>>({});
+  const [allTrackSubgroupDir, setAllTrackSubgroupDir] = useState<Partial<Record<EnrollmentTrackId, EnrollmentSortDir>>>(
+    {}
+  );
+  const [allSubgroupNameDir, setAllSubgroupNameDir] = useState<Record<string, EnrollmentSortDir>>({});
+  const [selCollapsedTracks, setSelCollapsedTracks] = useState<Set<EnrollmentTrackId>>(() => new Set());
+  const [selCollapsedSubgroups, setSelCollapsedSubgroups] = useState<Set<string>>(() => new Set());
+  const [allCollapsedTracks, setAllCollapsedTracks] = useState<Set<EnrollmentTrackId>>(() => new Set());
+  const [allCollapsedSubgroups, setAllCollapsedSubgroups] = useState<Set<string>>(() => new Set());
+
+  const toggleSelTrack = (id: EnrollmentTrackId) => {
+    setSelCollapsedTracks((prev) => {
+      const n = new Set(prev);
+      if (n.has(id)) n.delete(id);
+      else n.add(id);
+      return n;
+    });
+  };
+  const toggleSelSubgroup = (trackId: EnrollmentTrackId, subgroupKey: string) => {
+    const k = enrollmentSubgroupUiKey(trackId, subgroupKey);
+    setSelCollapsedSubgroups((prev) => {
+      const n = new Set(prev);
+      if (n.has(k)) n.delete(k);
+      else n.add(k);
+      return n;
+    });
+  };
+  const toggleAllTrack = (id: EnrollmentTrackId) => {
+    setAllCollapsedTracks((prev) => {
+      const n = new Set(prev);
+      if (n.has(id)) n.delete(id);
+      else n.add(id);
+      return n;
+    });
+  };
+  const toggleAllSubgroup = (trackId: EnrollmentTrackId, subgroupKey: string) => {
+    const k = enrollmentSubgroupUiKey(trackId, subgroupKey);
+    setAllCollapsedSubgroups((prev) => {
+      const n = new Set(prev);
+      if (n.has(k)) n.delete(k);
+      else n.add(k);
+      return n;
+    });
+  };
 
   const selectableEvents = useMemo(
     () =>
@@ -79,6 +135,20 @@ export function OrganiserAttendance() {
     [attendance, users]
   );
 
+  const displaySelectedTrackSections = useMemo(() => {
+    return selectedTrackSections.map((sec) => ({
+      ...sec,
+      subgroups: sortSubgroupBucketsByKey(sec.subgroups, selectedTrackSubgroupDir[sec.trackId] ?? 'asc').map((g) => ({
+        ...g,
+        items: sortAttendanceRecordsByDisplayName(
+          g.items,
+          users,
+          selectedSubgroupNameDir[enrollmentSubgroupUiKey(sec.trackId, g.subgroupKey)] ?? 'asc'
+        ),
+      })),
+    }));
+  }, [selectedTrackSections, users, selectedTrackSubgroupDir, selectedSubgroupNameDir]);
+
   const selectedExportRecords = useMemo(() => {
     const out = [];
     for (const sec of selectedTrackSections) {
@@ -91,6 +161,20 @@ export function OrganiserAttendance() {
     () => buildAttendanceTrackSectionsWithEvent(visibleAttendanceRows, users),
     [visibleAttendanceRows, users]
   );
+
+  const displayAllTrackSections = useMemo(() => {
+    return allAttendanceTrackSections.map((sec) => ({
+      ...sec,
+      subgroups: sortSubgroupBucketsByKey(sec.subgroups, allTrackSubgroupDir[sec.trackId] ?? 'asc').map((g) => ({
+        ...g,
+        items: sortAttendanceWithEventByDisplayName(
+          g.items,
+          users,
+          allSubgroupNameDir[enrollmentSubgroupUiKey(sec.trackId, g.subgroupKey)] ?? 'asc'
+        ),
+      })),
+    }));
+  }, [allAttendanceTrackSections, users, allTrackSubgroupDir, allSubgroupNameDir]);
 
   const selectedExportMeta = useMemo(() => {
     if (!selectedEvent) return null;
@@ -367,21 +451,41 @@ export function OrganiserAttendance() {
                       </td>
                     </tr>
                   ) : (
-                    selectedTrackSections.map((sec) => {
+                    displaySelectedTrackSections.map((sec) => {
                       const total = sec.subgroups.reduce((acc, g) => acc + g.items.length, 0);
                       const collegeProgramGroups =
                         sec.trackId === 'college' ? collegeProgramGroupsForAttendanceSection(sec, users) : [];
                       let seqInTrack = 0;
+                      const trackExpanded = !selCollapsedTracks.has(sec.trackId);
                       return (
                         <Fragment key={sec.trackId}>
                           <tr className="bg-slate-200/90">
                             <td colSpan={6} className="px-4 py-2.5 align-top">
                               <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                                <div className="text-sm font-bold uppercase tracking-wide text-slate-800">
-                                  {sec.sectionTitle}
-                                  <span className="ml-2 font-normal normal-case text-slate-600 text-xs">
-                                    ({total} student{total === 1 ? '' : 's'} — #1–{total})
-                                  </span>
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <SectionCollapseToggle
+                                    compact
+                                    expanded={trackExpanded}
+                                    onToggle={() => toggleSelTrack(sec.trackId)}
+                                    label={sec.sectionTitle}
+                                  />
+                                  <div className="text-sm font-bold uppercase tracking-wide text-slate-800">
+                                    {sec.sectionTitle}
+                                    <span className="ml-2 font-normal normal-case text-slate-600 text-xs">
+                                      ({total} student{total === 1 ? '' : 's'} — #1–{total})
+                                    </span>
+                                  </div>
+                                  <DepartmentSortToggle
+                                    compact
+                                    direction={selectedTrackSubgroupDir[sec.trackId] ?? 'asc'}
+                                    onToggle={() =>
+                                      setSelectedTrackSubgroupDir((prev) => ({
+                                        ...prev,
+                                        [sec.trackId]: flipEnrollmentSortDir(prev[sec.trackId] ?? 'asc'),
+                                      }))
+                                    }
+                                    label={`${sec.sectionTitle} department order`}
+                                  />
                                 </div>
                                 {isAttendanceExportTrackScope(sec.trackId) && (
                                   <AttendanceExportButtons
@@ -401,66 +505,94 @@ export function OrganiserAttendance() {
                                   />
                                 )}
                               </div>
-                              {sec.trackId === 'college' && collegeProgramGroups.length > 0 && (
-                                <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                                  {collegeProgramGroups.map((pg) => (
-                                    <AttendanceExportButtons
-                                      key={pg.programKey}
-                                      compact
-                                      disabled={pg.items.length === 0}
-                                      onExportPdf={() => {
-                                        void onSelectedCollegeProgramExport(pg.programLabel, pg.items, 'pdf');
-                                      }}
-                                      onExportExcel={() => {
-                                        void onSelectedCollegeProgramExport(pg.programLabel, pg.items, 'xlsx');
-                                      }}
-                                      exportLabel={`${pg.programLabel} only`}
-                                    />
-                                  ))}
-                                </div>
-                              )}
+                              {trackExpanded &&
+                                sec.trackId === 'college' &&
+                                collegeProgramGroups.length > 0 && (
+                                  <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                                    {collegeProgramGroups.map((pg) => (
+                                      <AttendanceExportButtons
+                                        key={pg.programKey}
+                                        compact
+                                        disabled={pg.items.length === 0}
+                                        onExportPdf={() => {
+                                          void onSelectedCollegeProgramExport(pg.programLabel, pg.items, 'pdf');
+                                        }}
+                                        onExportExcel={() => {
+                                          void onSelectedCollegeProgramExport(pg.programLabel, pg.items, 'xlsx');
+                                        }}
+                                        exportLabel={`${pg.programLabel} only`}
+                                      />
+                                    ))}
+                                  </div>
+                                )}
                             </td>
                           </tr>
-                          {sec.subgroups.map((g) => (
-                            <Fragment key={g.subgroupKey}>
-                              <tr className="bg-slate-100/90">
-                                <td
-                                  colSpan={6}
-                                  className="px-4 py-2 pl-6 text-xs font-semibold uppercase tracking-wide text-slate-600"
-                                >
-                                  {g.label}
-                                  <span className="ml-2 font-normal normal-case text-slate-500">
-                                    ({g.items.length})
-                                  </span>
-                                </td>
-                              </tr>
-                              {g.items.map((a) => {
-                                seqInTrack += 1;
-                                const rowUser = resolveUserForAttendance(users, a);
-                                const rowName = exportDisplayName(rowUser, a);
-                                return (
-                                  <tr key={a.id} className="hover:bg-slate-50/80">
-                                    <td className="px-4 py-3 tabular-nums text-slate-500">{seqInTrack}</td>
-                                    <td className="px-4 py-3 font-medium text-slate-900">
-                                      {rowName !== '—' ? rowName : 'Student'}
-                                    </td>
-                                    <td className="px-4 py-3 text-slate-600">{a.userEmail}</td>
-                                    <td className="px-4 py-3 text-sm text-slate-700">
-                                      {departmentLabelForExport(rowUser)}
-                                    </td>
-                                    <td className="px-4 py-3 tabular-nums text-slate-600">
-                                      {format(new Date(a.scannedAt), 'MMM d, yyyy HH:mm')}
-                                    </td>
-                                    <td className="px-4 py-3 tabular-nums text-slate-600">
-                                      {a.timeOutAt
-                                        ? format(new Date(a.timeOutAt), 'MMM d, yyyy HH:mm')
-                                        : '—'}
+                          {trackExpanded &&
+                            sec.subgroups.map((g) => {
+                              const sgKey = enrollmentSubgroupUiKey(sec.trackId, g.subgroupKey);
+                              const subgroupExpanded = !selCollapsedSubgroups.has(sgKey);
+                              return (
+                                <Fragment key={g.subgroupKey}>
+                                  <tr className="bg-slate-100/90">
+                                    <td colSpan={6} className="px-4 py-2 pl-6">
+                                      <div className="flex items-center justify-between gap-2">
+                                        <div className="flex min-w-0 flex-1 items-center gap-2">
+                                          <SectionCollapseToggle
+                                            compact
+                                            expanded={subgroupExpanded}
+                                            onToggle={() => toggleSelSubgroup(sec.trackId, g.subgroupKey)}
+                                            label={g.label}
+                                          />
+                                          <div className="text-xs font-semibold uppercase tracking-wide text-slate-600">
+                                            {g.label}
+                                            <span className="ml-2 font-normal normal-case text-slate-500">
+                                              ({g.items.length})
+                                            </span>
+                                          </div>
+                                        </div>
+                                        <DepartmentSortToggle
+                                          compact
+                                          direction={selectedSubgroupNameDir[sgKey] ?? 'asc'}
+                                          onToggle={() => {
+                                            setSelectedSubgroupNameDir((prev) => ({
+                                              ...prev,
+                                              [sgKey]: flipEnrollmentSortDir(prev[sgKey] ?? 'asc'),
+                                            }));
+                                          }}
+                                          label={`${g.label} name order`}
+                                        />
+                                      </div>
                                     </td>
                                   </tr>
-                                );
-                              })}
-                            </Fragment>
-                          ))}
+                                  {subgroupExpanded &&
+                                    g.items.map((a) => {
+                                      seqInTrack += 1;
+                                      const rowUser = resolveUserForAttendance(users, a);
+                                      const rowName = exportDisplayName(rowUser, a);
+                                      return (
+                                        <tr key={a.id} className="hover:bg-slate-50/80">
+                                          <td className="px-4 py-3 tabular-nums text-slate-500">{seqInTrack}</td>
+                                          <td className="px-4 py-3 font-medium text-slate-900">
+                                            {rowName !== '—' ? rowName : 'Student'}
+                                          </td>
+                                          <td className="px-4 py-3 text-slate-600">{a.userEmail}</td>
+                                          <td className="px-4 py-3 text-sm text-slate-700">
+                                            {departmentLabelForExport(rowUser)}
+                                          </td>
+                                          <td className="px-4 py-3 tabular-nums text-slate-600">
+                                            {format(new Date(a.scannedAt), 'MMM d, yyyy HH:mm')}
+                                          </td>
+                                          <td className="px-4 py-3 tabular-nums text-slate-600">
+                                            {a.timeOutAt
+                                              ? format(new Date(a.timeOutAt), 'MMM d, yyyy HH:mm')
+                                              : '—'}
+                                          </td>
+                                        </tr>
+                                      );
+                                    })}
+                                </Fragment>
+                              );
+                            })}
                         </Fragment>
                       );
                     })
@@ -530,21 +662,41 @@ export function OrganiserAttendance() {
                   </td>
                 </tr>
               ) : (
-                allAttendanceTrackSections.map((sec) => {
+                displayAllTrackSections.map((sec) => {
                   const total = sec.subgroups.reduce((acc, g) => acc + g.items.length, 0);
                   const collegeProgramGroups =
                     sec.trackId === 'college' ? collegeProgramGroupsForAttendanceSection(sec, users) : [];
                   let seqInTrack = 0;
+                  const trackExpanded = !allCollapsedTracks.has(sec.trackId);
                   return (
                     <Fragment key={`all-${sec.trackId}`}>
                       <tr className="bg-slate-200/90">
                         <td colSpan={7} className="px-4 py-2.5 align-top">
                           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                            <div className="text-sm font-bold uppercase tracking-wide text-slate-800">
-                              {sec.sectionTitle}
-                              <span className="ml-2 font-normal normal-case text-slate-600 text-xs">
-                                ({total} row{total === 1 ? '' : 's'} — #1–{total})
-                              </span>
+                            <div className="flex flex-wrap items-center gap-2">
+                              <SectionCollapseToggle
+                                compact
+                                expanded={trackExpanded}
+                                onToggle={() => toggleAllTrack(sec.trackId)}
+                                label={sec.sectionTitle}
+                              />
+                              <div className="text-sm font-bold uppercase tracking-wide text-slate-800">
+                                {sec.sectionTitle}
+                                <span className="ml-2 font-normal normal-case text-slate-600 text-xs">
+                                  ({total} row{total === 1 ? '' : 's'} — #1–{total})
+                                </span>
+                              </div>
+                              <DepartmentSortToggle
+                                compact
+                                direction={allTrackSubgroupDir[sec.trackId] ?? 'asc'}
+                                onToggle={() =>
+                                  setAllTrackSubgroupDir((prev) => ({
+                                    ...prev,
+                                    [sec.trackId]: flipEnrollmentSortDir(prev[sec.trackId] ?? 'asc'),
+                                  }))
+                                }
+                                label={`${sec.sectionTitle} department order`}
+                              />
                             </div>
                             {isAttendanceExportTrackScope(sec.trackId) && (
                               <AttendanceExportButtons
@@ -564,65 +716,95 @@ export function OrganiserAttendance() {
                               />
                             )}
                           </div>
-                          {sec.trackId === 'college' && collegeProgramGroups.length > 0 && (
-                            <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                              {collegeProgramGroups.map((pg) => (
-                                <AttendanceExportButtons
-                                  key={pg.programKey}
-                                  compact
-                                  disabled={pg.items.length === 0}
-                                  onExportPdf={() => {
-                                    void onAllCollegeProgramExport(pg.programLabel, pg.items, 'pdf');
-                                  }}
-                                  onExportExcel={() => {
-                                    void onAllCollegeProgramExport(pg.programLabel, pg.items, 'xlsx');
-                                  }}
-                                  exportLabel={`${pg.programLabel} only`}
-                                />
-                              ))}
-                            </div>
-                          )}
+                          {trackExpanded &&
+                            sec.trackId === 'college' &&
+                            collegeProgramGroups.length > 0 && (
+                              <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                                {collegeProgramGroups.map((pg) => (
+                                  <AttendanceExportButtons
+                                    key={pg.programKey}
+                                    compact
+                                    disabled={pg.items.length === 0}
+                                    onExportPdf={() => {
+                                      void onAllCollegeProgramExport(pg.programLabel, pg.items, 'pdf');
+                                    }}
+                                    onExportExcel={() => {
+                                      void onAllCollegeProgramExport(pg.programLabel, pg.items, 'xlsx');
+                                    }}
+                                    exportLabel={`${pg.programLabel} only`}
+                                  />
+                                ))}
+                              </div>
+                            )}
                         </td>
                       </tr>
-                      {sec.subgroups.map((g) => (
-                        <Fragment key={g.subgroupKey}>
-                          <tr className="bg-slate-100/90">
-                            <td
-                              colSpan={7}
-                              className="px-4 py-2 pl-6 text-xs font-semibold uppercase tracking-wide text-slate-600"
-                            >
-                              {g.label}
-                              <span className="ml-2 font-normal normal-case text-slate-500">({g.items.length})</span>
-                            </td>
-                          </tr>
-                          {g.items.map((a) => {
-                            seqInTrack += 1;
-                            const rowUser = resolveUserForAttendance(users, a);
-                            const rowName = exportDisplayName(rowUser, a);
-                            return (
-                              <tr key={a.id} className="hover:bg-slate-50/80">
-                                <td className="px-4 py-3 tabular-nums text-slate-500">{seqInTrack}</td>
-                                <td className="px-4 py-3 font-medium text-slate-800">{a.eventTitle}</td>
-                                <td className="px-4 py-3 font-medium text-slate-900">
-                                  {rowName !== '—' ? rowName : 'Student'}
-                                </td>
-                                <td className="px-4 py-3 text-slate-600">{a.userEmail}</td>
-                                <td className="px-4 py-3 text-sm text-slate-700">
-                                  {departmentLabelForExport(rowUser)}
-                                </td>
-                                <td className="px-4 py-3 tabular-nums text-slate-600">
-                                  {format(new Date(a.scannedAt), 'MMM d, yyyy HH:mm')}
-                                </td>
-                                <td className="px-4 py-3 tabular-nums text-slate-600">
-                                  {a.timeOutAt
-                                    ? format(new Date(a.timeOutAt), 'MMM d, yyyy HH:mm')
-                                    : '—'}
+                      {trackExpanded &&
+                        sec.subgroups.map((g) => {
+                          const sgKey = enrollmentSubgroupUiKey(sec.trackId, g.subgroupKey);
+                          const subgroupExpanded = !allCollapsedSubgroups.has(sgKey);
+                          return (
+                            <Fragment key={g.subgroupKey}>
+                              <tr className="bg-slate-100/90">
+                                <td colSpan={7} className="px-4 py-2 pl-6">
+                                  <div className="flex items-center justify-between gap-2">
+                                    <div className="flex min-w-0 flex-1 items-center gap-2">
+                                      <SectionCollapseToggle
+                                        compact
+                                        expanded={subgroupExpanded}
+                                        onToggle={() => toggleAllSubgroup(sec.trackId, g.subgroupKey)}
+                                        label={g.label}
+                                      />
+                                      <div className="text-xs font-semibold uppercase tracking-wide text-slate-600">
+                                        {g.label}
+                                        <span className="ml-2 font-normal normal-case text-slate-500">
+                                          ({g.items.length})
+                                        </span>
+                                      </div>
+                                    </div>
+                                    <DepartmentSortToggle
+                                      compact
+                                      direction={allSubgroupNameDir[sgKey] ?? 'asc'}
+                                      onToggle={() => {
+                                        setAllSubgroupNameDir((prev) => ({
+                                          ...prev,
+                                          [sgKey]: flipEnrollmentSortDir(prev[sgKey] ?? 'asc'),
+                                        }));
+                                      }}
+                                      label={`${g.label} name order`}
+                                    />
+                                  </div>
                                 </td>
                               </tr>
-                            );
-                          })}
-                        </Fragment>
-                      ))}
+                              {subgroupExpanded &&
+                                g.items.map((a) => {
+                                  seqInTrack += 1;
+                                  const rowUser = resolveUserForAttendance(users, a);
+                                  const rowName = exportDisplayName(rowUser, a);
+                                  return (
+                                    <tr key={a.id} className="hover:bg-slate-50/80">
+                                      <td className="px-4 py-3 tabular-nums text-slate-500">{seqInTrack}</td>
+                                      <td className="px-4 py-3 font-medium text-slate-800">{a.eventTitle}</td>
+                                      <td className="px-4 py-3 font-medium text-slate-900">
+                                        {rowName !== '—' ? rowName : 'Student'}
+                                      </td>
+                                      <td className="px-4 py-3 text-slate-600">{a.userEmail}</td>
+                                      <td className="px-4 py-3 text-sm text-slate-700">
+                                        {departmentLabelForExport(rowUser)}
+                                      </td>
+                                      <td className="px-4 py-3 tabular-nums text-slate-600">
+                                        {format(new Date(a.scannedAt), 'MMM d, yyyy HH:mm')}
+                                      </td>
+                                      <td className="px-4 py-3 tabular-nums text-slate-600">
+                                        {a.timeOutAt
+                                          ? format(new Date(a.timeOutAt), 'MMM d, yyyy HH:mm')
+                                          : '—'}
+                                      </td>
+                                    </tr>
+                                  );
+                                })}
+                            </Fragment>
+                          );
+                        })}
                     </Fragment>
                   );
                 })

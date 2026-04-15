@@ -27,7 +27,7 @@ Run in this exact order:
 1. `01_extensions.sql` — `pgcrypto` (reserved for future hashed passwords / ids)
 2. `02_types.sql` — enums: `user_role`, `teacher_approval_status`, `event_status`
 3. `03_tables.sql` — `users`, `events`, `attendance`, `event_registrations` + FKs + named unique keys
-4. `04_indexes.sql` — query indexes (includes `idx_users_academic_roster` for enrollment sort used on rosters & Admin Users)
+4. `04_indexes.sql` — query indexes (includes `idx_users_academic_roster` for enrollment sort used on rosters & Admin Users; client-side expand/collapse plus asc/desc toggles for subgroups/names sit on top of this default order)
 5. `07_constraints.sql` — **data fixes** for legacy rows, then checks (event dates, teacher staff fields, student/teacher approval). Re-run safe; fixes use placeholders `Not set` / `General` / `TBD-{id}` only where values were missing.
 6. `08_triggers.sql` — `events.updated_at` auto-maintained on update; `trg_events_validate_future_dates` rejects past `start_date` / `end_date` on insert and on update while the event is not fully ended
 7. `09_comments.sql` — renames legacy `UNIQUE` constraints to `uq_attendance_event_user` / `uq_event_registrations_event_user` if needed, then `COMMENT ON` for documentation
@@ -44,6 +44,7 @@ Run in this exact order:
 18. `18_handle_new_auth_user.sql` — **after `11_api_grants.sql`**: trigger on `auth.users` inserts/updates `public.users` with the same `id`, `approval_status = pending`, and metadata-derived enrollment (student/teacher app registration only). Prevents “Auth user exists but no profile row” when the browser insert fails.
 19. `19_attendance_time_out.sql` — **`attendance.time_out_at`** (optional student checkout after QR check-in) + `chk_attendance_time_out_after_scan`. In **`00_all_in_one.sql`** this is inlined **right after the 04 indexes** block. Re-run on existing DBs that predate the column.
 20. `20_event_qr_random_unique.sql` — ensures `events.qr_code_data` is auto-generated (`EVT-<random>`), unique, and non-null on existing DBs.
+21. `21_idx_users_academic_roster_comment.sql` — optional `COMMENT ON INDEX` for `idx_users_academic_roster` (already in fresh `04_indexes.sql` / `00_all_in_one.sql`); use on older DBs so the index documents Admin Users + roster default sort vs client-side expand/collapse and subgroup/name toggles.
 
 **Merged:** `00_all_in_one.sql` inlines **01–04** (includes **19** after indexes), **07–09** (includes academic columns + `chk_users_academic_shape` and event QR uniqueness/defaults), **05** (RLS), **11** (grants), **18** (Auth → `public.users` trigger), **14** (student reminder RPCs), **16** (attendance enrollment view), **06** (seed), **10** (auth note + `select 1`), **12** (verify `select`), and ends with **13** as a **commented** repair block (uncomment or run `13_repair_demo_login_users.sql` separately — do not run `13` on top of a fresh seed in the same pass).
 

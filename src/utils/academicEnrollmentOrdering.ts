@@ -82,6 +82,34 @@ export function compareUsersBySchoolEnrollment(a: User, b: User): number {
   return a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
 }
 
+/** Ascending / descending for department subgroup rows and name order within a subgroup. */
+export type EnrollmentSortDir = 'asc' | 'desc';
+
+export function flipEnrollmentSortDir(d: EnrollmentSortDir): EnrollmentSortDir {
+  return d === 'asc' ? 'desc' : 'asc';
+}
+
+/** Stable key for per-subgroup UI state (admin users, rosters). */
+export function enrollmentSubgroupUiKey(trackId: string, subgroupKey: string): string {
+  return `${trackId}::${subgroupKey}`;
+}
+
+export function sortSubgroupBucketsByKey<T>(
+  subgroups: EnrollmentSubgroupBucket<T>[],
+  dir: EnrollmentSortDir
+): EnrollmentSubgroupBucket<T>[] {
+  return [...subgroups].sort((a, b) =>
+    dir === 'asc' ? a.subgroupKey.localeCompare(b.subgroupKey) : b.subgroupKey.localeCompare(a.subgroupKey)
+  );
+}
+
+export function sortUsersByDisplayName(users: User[], dir: EnrollmentSortDir): User[] {
+  return [...users].sort((a, b) => {
+    const c = a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
+    return dir === 'asc' ? c : -c;
+  });
+}
+
 export type EnrollmentSubgroupBucket<T> = {
   subgroupKey: string;
   label: string;

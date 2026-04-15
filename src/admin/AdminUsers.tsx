@@ -12,7 +12,17 @@ import {
 } from '@/constants/academicEnrollment';
 import type { AcademicEnrollmentValue } from '@/constants/academicEnrollment';
 import { formatUserAcademicLine } from '@/utils/academicProfileDisplay';
-import { buildUserTrackSections } from '@/utils/academicEnrollmentOrdering';
+import {
+  buildUserTrackSections,
+  enrollmentSubgroupUiKey,
+  flipEnrollmentSortDir,
+  sortSubgroupBucketsByKey,
+  sortUsersByDisplayName,
+  type EnrollmentSortDir,
+  type EnrollmentTrackId,
+} from '@/utils/academicEnrollmentOrdering';
+import { DepartmentSortToggle } from '@/components/DepartmentSortToggle';
+import { SectionCollapseToggle } from '@/components/SectionCollapseToggle';
 import { User as UserIcon, Mail, Plus, Pencil, Trash2, Building2, Phone, IdCard } from 'lucide-react';
 import { PageHeader, RoleBadge } from '@/components/PageHeader';
 import { EventListSearchBar } from '@/components/EventListSearchBar';
@@ -85,6 +95,12 @@ export function AdminUsers() {
   const { user: currentUser } = useAuth();
   const { users, addUser, updateUser, deleteUser } = useData();
   const [search, setSearch] = useState('');
+  const [trackSubgroupDir, setTrackSubgroupDir] = useState<Partial<Record<EnrollmentTrackId, EnrollmentSortDir>>>({});
+  const [subgroupUserDir, setSubgroupUserDir] = useState<Record<string, EnrollmentSortDir>>({});
+  /** Collapsed = long student lists hidden per track / subgroup */
+  const [collapsedStudentTracks, setCollapsedStudentTracks] = useState<Set<EnrollmentTrackId>>(() => new Set());
+  const [collapsedStudentSubgroups, setCollapsedStudentSubgroups] = useState<Set<string>>(() => new Set());
+  const [staffSectionCollapsed, setStaffSectionCollapsed] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [error, setError] = useState('');
@@ -120,6 +136,38 @@ export function AdminUsers() {
       staffUsers: staff,
     };
   }, [visibleUsers]);
+
+  const toggleStudentTrackCollapsed = (trackId: EnrollmentTrackId) => {
+    setCollapsedStudentTracks((prev) => {
+      const next = new Set(prev);
+      if (next.has(trackId)) next.delete(trackId);
+      else next.add(trackId);
+      return next;
+    });
+  };
+
+  const toggleStudentSubgroupCollapsed = (trackId: EnrollmentTrackId, subgroupKey: string) => {
+    const k = enrollmentSubgroupUiKey(trackId, subgroupKey);
+    setCollapsedStudentSubgroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(k)) next.delete(k);
+      else next.add(k);
+      return next;
+    });
+  };
+
+  const displayStudentSections = useMemo(() => {
+    return studentTrackSections.map((sec) => ({
+      ...sec,
+      subgroups: sortSubgroupBucketsByKey(sec.subgroups, trackSubgroupDir[sec.trackId] ?? 'asc').map((g) => ({
+        ...g,
+        items: sortUsersByDisplayName(
+          g.items,
+          subgroupUserDir[enrollmentSubgroupUiKey(sec.trackId, g.subgroupKey)] ?? 'asc'
+        ),
+      })),
+    }));
+  }, [studentTrackSections, trackSubgroupDir, subgroupUserDir]);
 
   const resetForm = () => {
     setForm({
@@ -485,76 +533,133 @@ export function AdminUsers() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {studentTrackSections.map((sec) => {
+              {displayStudentSections.map((sec) => {
                 const total = sec.subgroups.reduce((acc, g) => acc + g.items.length, 0);
                 let numInTrack = 0;
+                const trackExpanded = !collapsedStudentTracks.has(sec.trackId);
                 return (
                   <Fragment key={`stu-${sec.trackId}`}>
                     <tr className="bg-slate-200/90">
-                      <td
-                        colSpan={5}
-                        className="px-4 py-2.5 text-sm font-bold uppercase tracking-wide text-slate-800"
-                      >
-                        Students — {sec.sectionTitle}
-                        <span className="ml-2 font-normal normal-case text-slate-600 text-xs">
-                          ({total} user{total === 1 ? '' : 's'} — #1–{total})
-                        </span>
+                      <td colSpan={5} className="px-4 py-2.5">
+                        <div className="flex items-center justify-between gap-3">
+                          <div className="flex min-w-0 flex-1 items-center gap-2">
+                            <SectionCollapseToggle
+                              compact
+                              expanded={trackExpanded}
+                              onToggle={() => toggleStudentTrackCollapsed(sec.trackId)}
+                              label={`Students — ${sec.sectionTitle}`}
+                            />
+                            <div className="min-w-0 text-sm font-bold uppercase tracking-wide text-slate-800">
+                              Students — {sec.sectionTitle}
+                              <span className="ml-2 font-normal normal-case text-slate-600 text-xs">
+                                ({total} user{total === 1 ? '' : 's'} — #1–{total})
+                              </span>
+                            </div>
+                          </div>
+                          <DepartmentSortToggle
+                            compact
+                            direction={trackSubgroupDir[sec.trackId] ?? 'asc'}
+                            onToggle={() =>
+                              setTrackSubgroupDir((prev) => ({
+                                ...prev,
+                                [sec.trackId]: flipEnrollmentSortDir(prev[sec.trackId] ?? 'asc'),
+                              }))
+                            }
+                            label={`${sec.sectionTitle} department order`}
+                          />
+                        </div>
                       </td>
                     </tr>
-                    {sec.subgroups.map((g) => (
-                      <Fragment key={g.subgroupKey}>
-                        <tr className="bg-slate-100/90">
-                          <td
-                            colSpan={5}
-                            className="px-4 py-2 pl-8 text-xs font-semibold uppercase tracking-wide text-slate-600"
-                          >
-                            {g.label}
-                            <span className="ml-2 font-normal normal-case text-slate-500">({g.items.length})</span>
-                          </td>
-                        </tr>
-                        {g.items.map((u) => {
-                          numInTrack += 1;
-                          return (
-                            <UserManagementRow
-                              key={u.id}
-                              u={u}
-                              rowNum={numInTrack}
-                              currentUserId={currentUser?.id}
-                              onEdit={handleEdit}
-                              onDelete={handleDelete}
-                              patchUserApproval={patchUserApproval}
-                            />
-                          );
-                        })}
-                      </Fragment>
-                    ))}
+                    {trackExpanded &&
+                      sec.subgroups.map((g) => {
+                        const sgKey = enrollmentSubgroupUiKey(sec.trackId, g.subgroupKey);
+                        const subgroupExpanded = !collapsedStudentSubgroups.has(sgKey);
+                        return (
+                          <Fragment key={g.subgroupKey}>
+                            <tr className="bg-slate-100/90">
+                              <td colSpan={5} className="px-4 py-2 pl-8">
+                                <div className="flex items-center justify-between gap-3">
+                                  <div className="flex min-w-0 flex-1 items-center gap-2">
+                                    <SectionCollapseToggle
+                                      compact
+                                      expanded={subgroupExpanded}
+                                      onToggle={() => toggleStudentSubgroupCollapsed(sec.trackId, g.subgroupKey)}
+                                      label={g.label}
+                                    />
+                                    <div className="min-w-0 text-xs font-semibold uppercase tracking-wide text-slate-600">
+                                      {g.label}
+                                      <span className="ml-2 font-normal normal-case text-slate-500">
+                                        ({g.items.length})
+                                      </span>
+                                    </div>
+                                  </div>
+                                  <DepartmentSortToggle
+                                    compact
+                                    direction={subgroupUserDir[sgKey] ?? 'asc'}
+                                    onToggle={() => {
+                                      setSubgroupUserDir((prev) => ({
+                                        ...prev,
+                                        [sgKey]: flipEnrollmentSortDir(prev[sgKey] ?? 'asc'),
+                                      }));
+                                    }}
+                                    label={`${g.label} name order`}
+                                  />
+                                </div>
+                              </td>
+                            </tr>
+                            {subgroupExpanded &&
+                              g.items.map((u) => {
+                                numInTrack += 1;
+                                return (
+                                  <UserManagementRow
+                                    key={u.id}
+                                    u={u}
+                                    rowNum={numInTrack}
+                                    currentUserId={currentUser?.id}
+                                    onEdit={handleEdit}
+                                    onDelete={handleDelete}
+                                    patchUserApproval={patchUserApproval}
+                                  />
+                                );
+                              })}
+                          </Fragment>
+                        );
+                      })}
                   </Fragment>
                 );
               })}
               {staffUsers.length > 0 && (
                 <>
                   <tr className="bg-slate-200/90">
-                    <td
-                      colSpan={5}
-                      className="px-4 py-2.5 text-sm font-bold uppercase tracking-wide text-slate-800"
-                    >
-                      Staff — administrators, organisers &amp; teachers
-                      <span className="ml-2 font-normal normal-case text-slate-600 text-xs">
-                        ({staffUsers.length} — #1–{staffUsers.length})
-                      </span>
+                    <td colSpan={5} className="px-4 py-2.5">
+                      <div className="flex items-center gap-2">
+                        <SectionCollapseToggle
+                          compact
+                          expanded={!staffSectionCollapsed}
+                          onToggle={() => setStaffSectionCollapsed((c) => !c)}
+                          label="Staff section"
+                        />
+                        <span className="text-sm font-bold uppercase tracking-wide text-slate-800">
+                          Staff — administrators, organisers &amp; teachers
+                          <span className="ml-2 font-normal normal-case text-slate-600 text-xs">
+                            ({staffUsers.length} — #1–{staffUsers.length})
+                          </span>
+                        </span>
+                      </div>
                     </td>
                   </tr>
-                  {staffUsers.map((u, idx) => (
-                    <UserManagementRow
-                      key={u.id}
-                      u={u}
-                      rowNum={idx + 1}
-                      currentUserId={currentUser?.id}
-                      onEdit={handleEdit}
-                      onDelete={handleDelete}
-                      patchUserApproval={patchUserApproval}
-                    />
-                  ))}
+                  {!staffSectionCollapsed &&
+                    staffUsers.map((u, idx) => (
+                      <UserManagementRow
+                        key={u.id}
+                        u={u}
+                        rowNum={idx + 1}
+                        currentUserId={currentUser?.id}
+                        onEdit={handleEdit}
+                        onDelete={handleDelete}
+                        patchUserApproval={patchUserApproval}
+                      />
+                    ))}
                 </>
               )}
             </tbody>

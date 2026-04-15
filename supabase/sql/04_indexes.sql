@@ -3,6 +3,8 @@ create index if not exists idx_users_email on public.users(email);
 create index if not exists idx_users_role on public.users(role);
 -- Roster / admin list ordering: junior_high (years 1–4 stored, UI Grade 7–10) → senior_high → college (year + program); mirrors app academicEnrollmentOrdering.ts
 create index if not exists idx_users_academic_roster on public.users(academic_track, academic_year, academic_program);
+comment on index public.idx_users_academic_roster is
+  'Default ordering for Admin → Users and attendance rosters (teacher / organiser / admin event roster) by academic_track, academic_year, academic_program. The app may expand/collapse tracks and department subgroups client-side; subgroup / name sort toggles are client-side; exports keep canonical ordering.';
 
 create index if not exists idx_events_status on public.events(status);
 create index if not exists idx_events_start_date on public.events(start_date);
