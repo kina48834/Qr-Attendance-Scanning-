@@ -19,7 +19,7 @@ export const authAlertBase = 'rounded-xl border px-3.5 py-2.5 text-sm flex gap-2
 
 /** Dark landing theme — matches `/about` (navy overlay, landing-sky accents, glass cards) */
 export const landingAuthCardShell =
-  'overflow-hidden rounded-2xl border border-white/10 bg-white/[0.04] shadow-2xl shadow-black/40 backdrop-blur-sm';
+  'overflow-hidden rounded-2xl border border-white/10 bg-white/[0.06] shadow-2xl shadow-black/40 backdrop-blur-md';
 
 export const landingAuthInputClass =
   'w-full rounded-lg border border-white/15 bg-white/5 px-3 py-2 text-sm text-white shadow-inner shadow-black/20 placeholder:text-white/40 transition-[border-color,box-shadow] focus:border-landing-sky focus:outline-none focus:ring-2 focus:ring-landing-sky/25';

@@ -95,11 +95,14 @@ comment on column public.events.organiser_name is 'Denormalised display name for
 comment on column public.events.start_date is 'Must be >= now() on insert; updates blocked from moving into the past while the event is not fully ended (trigger trg_events_validate_future_dates).';
 comment on column public.events.end_date is 'Must be >= start_date (chk_events_end_after_start) and >= now() on insert; same update rule as start_date when the event has not fully ended.';
 comment on column public.events.status is 'draft | published | completed | cancelled — gates student scan.';
-comment on column public.events.qr_code_data is 'Event QR payload; StudentScan / eventMatchesScannedValue.';
+comment on column public.events.qr_code_data is
+  'Auto-generated unique event QR payload (EVT-<random>) used in event details and StudentScan / eventMatchesScannedValue.';
 comment on column public.events.max_attendees is 'Optional cap from event forms.';
+comment on constraint uq_events_qr_code_data on public.events is
+  'Guarantees every event QR payload is unique.';
 
 comment on table public.attendance is
-  'One row per student per event: StudentScan (venue QR) or OrganiserScanAttendance (ATTEND:userId:eventId). `scanned_at` = time in; optional `time_out_at` = student checkout from History. Rosters join `users` for grouping; exports in `attendanceExport.ts`.';
+  'One row per student per event: StudentScan (venue QR) or OrganiserScanAttendance (ATTEND:userId:eventId). `scanned_at` = time in; optional `time_out_at` = student checkout from History. Rosters join `users` for grouping; exports in `attendanceExport.ts` include Department + Grade level columns, with level-only and college-program-only export scopes.';
 
 comment on column public.attendance.scanned_at is 'QR check-in (time in).';
 

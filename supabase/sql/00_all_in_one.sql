@@ -87,7 +87,8 @@ create table if not exists public.events (
   organiser_id text not null references public.users(id) on delete cascade,
   organiser_name text not null,
   status event_status not null default 'draft',
-  qr_code_data text null,
+  qr_code_data text not null default ('EVT-' || upper(encode(gen_random_bytes(12), 'hex'))),
+  constraint uq_events_qr_code_data unique (qr_code_data),
   max_attendees integer null check (max_attendees is null or max_attendees > 0),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
@@ -187,6 +188,21 @@ update public.events
 set end_date = start_date
 where end_date < start_date;
 
+update public.events
+set qr_code_data = 'EVT-' || upper(encode(gen_random_bytes(12), 'hex'))
+where qr_code_data is null
+  or btrim(qr_code_data) = '';
+
+with ranked as (
+  select id, row_number() over (partition by qr_code_data order by created_at, id) as rn
+  from public.events
+)
+update public.events e
+set qr_code_data = 'EVT-' || upper(encode(gen_random_bytes(12), 'hex'))
+from ranked r
+where e.id = r.id
+  and r.rn > 1;
+
 update public.users
 set approval_status = null
 where role not in ('teacher'::user_role, 'student'::user_role)
@@ -211,6 +227,23 @@ where role = 'teacher'::user_role
 alter table public.events drop constraint if exists chk_events_end_after_start;
 alter table public.events
   add constraint chk_events_end_after_start check (end_date >= start_date);
+
+alter table public.events
+  alter column qr_code_data set default ('EVT-' || upper(encode(gen_random_bytes(12), 'hex')));
+alter table public.events
+  alter column qr_code_data set not null;
+
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_constraint
+    where conrelid = 'public.events'::regclass
+      and conname = 'uq_events_qr_code_data'
+  ) then
+    alter table public.events add constraint uq_events_qr_code_data unique (qr_code_data);
+  end if;
+end $$;
 
 alter table public.users drop constraint if exists chk_users_approval_teacher_only;
 alter table public.users
@@ -410,10 +443,13 @@ comment on column public.events.organiser_name is 'Denormalised display name for
 comment on column public.events.start_date is 'Must be >= now() on insert; updates blocked from moving into the past while the event is not fully ended (trigger trg_events_validate_future_dates).';
 comment on column public.events.end_date is 'Must be >= start_date (chk_events_end_after_start) and >= now() on insert; same update rule as start_date when the event has not fully ended.';
 comment on column public.events.status is 'draft | published | completed | cancelled — gates student scan.';
-comment on column public.events.qr_code_data is 'Event QR payload; StudentScan / eventMatchesScannedValue.';
+comment on column public.events.qr_code_data is
+  'Auto-generated unique event QR payload (EVT-<random>) used in event details and StudentScan / eventMatchesScannedValue.';
 comment on column public.events.max_attendees is 'Optional cap from event forms.';
+comment on constraint uq_events_qr_code_data on public.events is
+  'Guarantees every event QR payload is unique.';
 comment on table public.attendance is
-  'One row per student per event: StudentScan (venue QR) or OrganiserScanAttendance (ATTEND:userId:eventId). `scanned_at` = time in; optional `time_out_at` = student checkout from History. Rosters join `users` for grouping; exports in `attendanceExport.ts`.';
+  'One row per student per event: StudentScan (venue QR) or OrganiserScanAttendance (ATTEND:userId:eventId). `scanned_at` = time in; optional `time_out_at` = student checkout from History. Rosters join `users` for grouping; exports in `attendanceExport.ts` include Department + Grade level columns, with level-only and college-program-only export scopes.';
 comment on column public.attendance.scanned_at is 'QR check-in (time in).';
 comment on column public.attendance.time_out_at is
   'Optional checkout from student History; null until set. Must be >= scanned_at (`chk_attendance_time_out_after_scan`).';
@@ -708,7 +744,7 @@ grant execute on function public.student_reminders_count(text) to anon, authenti
 
 -- --- 16_attendance_enrollment_view.sql ---
 -- Reporting helper: attendance joined to users.academic_* (roster grouping in app).
--- App PDF/Excel exports: "Department" = enrollment line (year inside text); no email in export; name from users.name.
+-- App PDF/Excel exports: "Department" = department only (junior high / senior high / college program, no year), "Grade level" = academic_track/year label; no email in export; name from users.name.
 
 drop view if exists public.v_attendance_with_user_enrollment;
 
@@ -795,7 +831,7 @@ delete from public.events where id in ('evt-2', 'evt-3', 'evt-4', 'evt-5', 'evt-
 
 -- Exactly one pre-created event (organiser-owned, published for QR attendance).
 insert into public.events
-  (id, title, description, location, start_date, end_date, organiser_id, organiser_name, status, qr_code_data, max_attendees, created_at, updated_at)
+  (id, title, description, location, start_date, end_date, organiser_id, organiser_name, status, max_attendees, created_at, updated_at)
 values
   (
     'evt-1',
@@ -807,7 +843,6 @@ values
     'org-1',
     'Organiser',
     'published',
-    'EVT-evt-1',
     500,
     now(),
     now()
@@ -821,14 +856,14 @@ on conflict (id) do update set
   organiser_id = excluded.organiser_id,
   organiser_name = excluded.organiser_name,
   status = excluded.status,
-  qr_code_data = excluded.qr_code_data,
   max_attendees = excluded.max_attendees,
   updated_at = now();
 
 -- Sample attendance so demo roster is non-empty (student scanned event QR)
 insert into public.attendance (id, event_id, user_id, user_name, user_email, scanned_at, qr_code_data)
-values
-  ('att-seed-1', 'evt-1', 'stu-1', 'Student', 'student@gmail.com', now(), 'EVT-evt-1')
+select 'att-seed-1', e.id, 'stu-1', 'Student', 'student@gmail.com', now(), e.qr_code_data
+from public.events e
+where e.id = 'evt-1'
 on conflict (event_id, user_id) do nothing;
 
 -- --- 10_auth_public_users_alignment.sql ---

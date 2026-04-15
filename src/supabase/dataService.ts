@@ -1,5 +1,5 @@
 import type { AttendanceRecord, Event, EventRegistration, User } from '@/types';
-import { getEventQrCodeData } from '@/utils/attendanceQR';
+import { generateEventQrCodeData, normalizeQrValue } from '@/utils/attendanceQR';
 import { supabase } from '@/supabase/client';
 import { formatAcademicDepartmentLine, validateAcademicEnrollment } from '@/constants/academicEnrollment';
 import type { AcademicEnrollmentValue } from '@/constants/academicEnrollment';
@@ -328,6 +328,7 @@ export async function removeUser(id: string): Promise<void> {
 export async function insertEvent(event: Omit<Event, 'id' | 'createdAt' | 'updatedAt'>): Promise<Event> {
   const id = makeId('evt');
   const now = new Date().toISOString();
+  const generatedQr = generateEventQrCodeData();
   const row = {
     id,
     title: event.title,
@@ -338,7 +339,7 @@ export async function insertEvent(event: Omit<Event, 'id' | 'createdAt' | 'updat
     organiser_id: event.organiserId,
     organiser_name: event.organiserName,
     status: event.status,
-    qr_code_data: getEventQrCodeData(id, event.qrCodeData),
+    qr_code_data: normalizeQrValue(event.qrCodeData ?? '') || generatedQr,
     max_attendees: event.maxAttendees ?? null,
     created_at: now,
     updated_at: now,
@@ -358,7 +359,7 @@ export async function patchEvent(id: string, updates: Partial<Event>): Promise<E
   if (updates.organiserId !== undefined) payload.organiser_id = updates.organiserId;
   if (updates.organiserName !== undefined) payload.organiser_name = updates.organiserName;
   if (updates.status !== undefined) payload.status = updates.status;
-  if (updates.qrCodeData !== undefined) payload.qr_code_data = updates.qrCodeData;
+  if (updates.qrCodeData !== undefined) payload.qr_code_data = normalizeQrValue(updates.qrCodeData);
   if (updates.maxAttendees !== undefined) payload.max_attendees = updates.maxAttendees ?? null;
   const { data, error } = await supabase.from('events').update(payload).eq('id', id).select('*').single();
   if (error) throw error;

@@ -38,7 +38,7 @@ export interface Event {
   organiserId: string;
   organiserName: string;
   status: 'draft' | 'published' | 'completed' | 'cancelled';
-  /** Event QR payload for pattern recognition; student scan matches this to record attendance (e.g. EVT-evt-1) */
+  /** Event QR payload for pattern recognition; auto-generated unique code (e.g. EVT-<random>) */
   qrCodeData?: string;
   maxAttendees?: number;
   createdAt: string;

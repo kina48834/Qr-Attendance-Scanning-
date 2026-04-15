@@ -12,12 +12,12 @@ Run scripts in order in the Supabase SQL Editor, or paste **`00_all_in_one.sql`*
 | **Admin user management** | `users` CRUD (`AdminUsers.tsx`); same Department UI as Register; approve/reject both student and teacher pending accounts |
 | **Header profile card** (`AppLayout.tsx`) | `users.public_id` (random numeric user ID), `users.role`, `users.name`, `users.email` |
 | **Student / teacher profile** | `users.academic_*` + formatted `department`; run **`15_academic_enrollment_columns.sql`** on existing DBs (or full `07` / `00_all_in_one`) |
-| **Events** | `events` table; **create** via admin / organiser / teacher UIs; past `start_date` / `end_date` blocked in app (`min` on `datetime-local`) and DB trigger `trg_events_validate_future_dates` (see `08_triggers.sql`) |
+| **Events** | `events` table; **create** via admin / organiser / teacher UIs; each event gets an auto-generated unique QR payload (`events.qr_code_data`); past `start_date` / `end_date` blocked in app (`min` on `datetime-local`) and DB trigger `trg_events_validate_future_dates` (see `08_triggers.sql`) |
 | **Student events & search** | `events` (lists); `event_registrations` for sign-up |
 | **Student Reminders** (`/student/notifications`) | Same as app: `events` + `attendance`; optional SQL `student_events_open_no_attendance`, `student_events_missed_no_attendance`, `student_reminders_count` (`14_…sql`) |
 | **Student scan (venue QR)** | `attendance`: one row per `(event_id, user_id)`; `qr_code_data` stores scanned payload |
 | **Organiser scan (student QR `ATTEND:…`)** | Same `attendance` row shape; `user_name` / `user_email` from `users` |
-| **Attendance rosters (admin / teacher / organiser)** | Grouped by `users.academic_track` / `academic_year` / `academic_program`; PDF/Excel use a single **Department** column (full line from `users.department` / `academic_*`, including year); header exports all levels; per-level exports; optional view `v_attendance_with_user_enrollment` (`16_…sql`) |
+| **Attendance rosters (admin / teacher / organiser)** | Grouped by `users.academic_track` / `academic_year` / `academic_program`; PDF/Excel include **Department** + **Grade level** columns; header exports all levels; per-level exports (**Junior high** / **Senior high** / **College**); college-program-only exports; optional view `v_attendance_with_user_enrollment` (`16_…sql`) |
 | **Dashboards & analytics** | Aggregates over `users`, `events`, `attendance`, `event_registrations` (computed in app) |
 
 ## File order (categorized)
@@ -43,8 +43,9 @@ Run in this exact order:
 17. `17_student_teacher_approval.sql` — apply student+teacher approval constraint/comment updates on existing DBs if they were created before this change.
 18. `18_handle_new_auth_user.sql` — **after `11_api_grants.sql`**: trigger on `auth.users` inserts/updates `public.users` with the same `id`, `approval_status = pending`, and metadata-derived enrollment (student/teacher app registration only). Prevents “Auth user exists but no profile row” when the browser insert fails.
 19. `19_attendance_time_out.sql` — **`attendance.time_out_at`** (optional student checkout after QR check-in) + `chk_attendance_time_out_after_scan`. In **`00_all_in_one.sql`** this is inlined **right after the 04 indexes** block. Re-run on existing DBs that predate the column.
+20. `20_event_qr_random_unique.sql` — ensures `events.qr_code_data` is auto-generated (`EVT-<random>`), unique, and non-null on existing DBs.
 
-**Merged:** `00_all_in_one.sql` inlines **01–04** (includes **19** after indexes), **07–09** (includes academic columns + `chk_users_academic_shape`), **05** (RLS), **11** (grants), **18** (Auth → `public.users` trigger), **14** (student reminder RPCs), **16** (attendance enrollment view), **06** (seed), **10** (auth note + `select 1`), **12** (verify `select`), and ends with **13** as a **commented** repair block (uncomment or run `13_repair_demo_login_users.sql` separately — do not run `13` on top of a fresh seed in the same pass).
+**Merged:** `00_all_in_one.sql` inlines **01–04** (includes **19** after indexes), **07–09** (includes academic columns + `chk_users_academic_shape` and event QR uniqueness/defaults), **05** (RLS), **11** (grants), **18** (Auth → `public.users` trigger), **14** (student reminder RPCs), **16** (attendance enrollment view), **06** (seed), **10** (auth note + `select 1`), **12** (verify `select`), and ends with **13** as a **commented** repair block (uncomment or run `13_repair_demo_login_users.sql` separately — do not run `13` on top of a fresh seed in the same pass).
 
 ### Login / register troubleshooting
 

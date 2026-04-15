@@ -50,6 +50,22 @@ update public.events
 set end_date = start_date
 where end_date < start_date;
 
+-- Events: ensure qr_code_data exists and is unique (random EVT-* payloads).
+update public.events
+set qr_code_data = 'EVT-' || upper(encode(gen_random_bytes(12), 'hex'))
+where qr_code_data is null
+  or btrim(qr_code_data) = '';
+
+with ranked as (
+  select id, row_number() over (partition by qr_code_data order by created_at, id) as rn
+  from public.events
+)
+update public.events e
+set qr_code_data = 'EVT-' || upper(encode(gen_random_bytes(12), 'hex'))
+from ranked r
+where e.id = r.id
+  and r.rn > 1;
+
 -- Users: approval_status is used for student/teacher only (Admin clears it for admin/organiser)
 update public.users
 set approval_status = null
@@ -80,6 +96,23 @@ where role = 'teacher'::user_role
 alter table public.events drop constraint if exists chk_events_end_after_start;
 alter table public.events
   add constraint chk_events_end_after_start check (end_date >= start_date);
+
+alter table public.events
+  alter column qr_code_data set default ('EVT-' || upper(encode(gen_random_bytes(12), 'hex')));
+alter table public.events
+  alter column qr_code_data set not null;
+
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_constraint
+    where conrelid = 'public.events'::regclass
+      and conname = 'uq_events_qr_code_data'
+  ) then
+    alter table public.events add constraint uq_events_qr_code_data unique (qr_code_data);
+  end if;
+end $$;
 
 -- Users: only students/teachers use approval_status
 alter table public.users drop constraint if exists chk_users_approval_teacher_only;

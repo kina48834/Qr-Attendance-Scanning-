@@ -1,5 +1,6 @@
 import type { AttendanceRecord, User } from '@/types';
 import type { AttendanceExportRecord, MultiEventAttendanceRow } from '@/utils/attendanceExport';
+import { formatAcademicYearLevelLabel } from '@/constants/academicEnrollment';
 import { formatUserAcademicLine } from '@/utils/academicProfileDisplay';
 import {
   compareTrackIds,
@@ -42,9 +43,13 @@ export function exportDisplayName(u: User | undefined, record: AttendanceRecord)
   return snap;
 }
 
-/** Roster / PDF “Department” column: same as registration enrollment line (year level is already inside). */
+/** Roster / PDF “Department” column: same as registration enrollment line. */
 export function departmentLabelForExport(u: User | undefined): string {
-  return enrollmentLabelForAttendanceRow(u);
+  if (!u?.academicTrack) return 'Department not on file';
+  if (u.academicTrack === 'junior_high') return 'Junior high school';
+  if (u.academicTrack === 'senior_high') return 'Senior high school';
+  if (u.academicTrack === 'college') return (u.academicProgram ?? '').trim() || 'College';
+  return 'Department not on file';
 }
 
 /**
@@ -164,6 +169,7 @@ export function recordsForAttendanceTrackSection<T extends AttendanceRecord>(
         scannedAt: r.scannedAt,
         timeOutAt: r.timeOutAt,
         department: departmentLabelForExport(u),
+        yearLevel: formatAcademicYearLevelLabel(u ?? {}),
         rosterIndexInLevel: n,
       });
     }
@@ -188,9 +194,73 @@ export function multiEventRowsForAttendanceTrackSection(
         scannedAt: r.scannedAt,
         timeOutAt: r.timeOutAt,
         department: departmentLabelForExport(u),
+        yearLevel: formatAcademicYearLevelLabel(u ?? {}),
         rosterIndexInLevel: n,
       });
     }
   }
   return out;
+}
+
+export type CollegeProgramSectionGroup<T extends AttendanceRecord> = {
+  programKey: string;
+  programLabel: string;
+  items: T[];
+};
+
+/** Group one college section into export buckets by program (all college years under each program). */
+export function collegeProgramGroupsForAttendanceSection<T extends AttendanceRecord>(
+  section: EnrollmentTrackSection<T>,
+  users: User[]
+): CollegeProgramSectionGroup<T>[] {
+  if (section.trackId !== 'college') return [];
+  const byProgram = new Map<string, CollegeProgramSectionGroup<T>>();
+  for (const sg of section.subgroups) {
+    for (const row of sg.items) {
+      const u = resolveUserForAttendance(users, row as AttendanceRecord);
+      const raw = (u?.academicProgram ?? '').trim();
+      const label = raw || 'Program not on file';
+      const key = label.toLowerCase();
+      if (!byProgram.has(key)) byProgram.set(key, { programKey: key, programLabel: label, items: [] });
+      byProgram.get(key)!.items.push(row);
+    }
+  }
+  return [...byProgram.values()].sort((a, b) => a.programLabel.localeCompare(b.programLabel));
+}
+
+/** Export rows for an arbitrary attendance row subset (index restarts at 1). */
+export function recordsForAttendanceRows<T extends AttendanceRecord>(
+  rows: T[],
+  users: User[]
+): AttendanceExportRecord[] {
+  return rows.map((r, i) => {
+    const u = resolveUserForAttendance(users, r as AttendanceRecord);
+    return {
+      userName: exportDisplayName(u, r as AttendanceRecord),
+      scannedAt: r.scannedAt,
+      timeOutAt: r.timeOutAt,
+      department: departmentLabelForExport(u),
+      yearLevel: formatAcademicYearLevelLabel(u ?? {}),
+      rosterIndexInLevel: i + 1,
+    };
+  });
+}
+
+/** Multi-event export rows for an arbitrary attendance row subset (index restarts at 1). */
+export function multiEventRowsForAttendanceRows(
+  rows: AttendanceRecordWithEvent[],
+  users: User[]
+): MultiEventAttendanceRow[] {
+  return rows.map((r, i) => {
+    const u = resolveUserForAttendance(users, r);
+    return {
+      eventTitle: r.eventTitle,
+      userName: exportDisplayName(u, r),
+      scannedAt: r.scannedAt,
+      timeOutAt: r.timeOutAt,
+      department: departmentLabelForExport(u),
+      yearLevel: formatAcademicYearLevelLabel(u ?? {}),
+      rosterIndexInLevel: i + 1,
+    };
+  });
 }

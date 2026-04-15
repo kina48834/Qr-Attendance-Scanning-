@@ -1,7 +1,7 @@
 /** QR code format for student attendance: ATTEND:userId:eventId */
 export const ATTEND_QR_PREFIX = 'ATTEND:';
 
-/** Event QR prefix for pattern detection (e.g. EVT-evt-1) */
+/** Event QR prefix for pattern detection (e.g. EVT-8F2C...) */
 export const EVENT_QR_PREFIX = 'EVT-';
 
 /**
@@ -32,8 +32,21 @@ export function parseAttendanceQR(decoded: string): { userId: string; eventId: s
 }
 
 /**
+ * Random event QR payload generated at event creation time.
+ * Example: EVT-5E8A9C7F1D4B...
+ */
+export function generateEventQrCodeData(): string {
+  const g = globalThis.crypto as Crypto | undefined;
+  const token =
+    g && typeof g.randomUUID === 'function'
+      ? g.randomUUID().replace(/-/g, '')
+      : `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 12)}`;
+  return `${EVENT_QR_PREFIX}${token.toUpperCase()}`;
+}
+
+/**
  * Get the event QR payload to encode in the event QR code.
- * Ensures a consistent format (EVT-{eventId}) so scanning can match by qrCodeData or by event id.
+ * Uses stored random qrCodeData; falls back to legacy EVT-{eventId} if missing.
  */
 export function getEventQrCodeData(eventId: string, existingQrCodeData?: string): string {
   if (existingQrCodeData && normalizeQrValue(existingQrCodeData)) return normalizeQrValue(existingQrCodeData);

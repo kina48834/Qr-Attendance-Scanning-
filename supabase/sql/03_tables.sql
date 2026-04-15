@@ -50,7 +50,8 @@ create table if not exists public.events (
   organiser_id text not null references public.users(id) on delete cascade,
   organiser_name text not null,
   status event_status not null default 'draft',
-  qr_code_data text null,
+  qr_code_data text not null default ('EVT-' || upper(encode(gen_random_bytes(12), 'hex'))),
+  constraint uq_events_qr_code_data unique (qr_code_data),
   max_attendees integer null check (max_attendees is null or max_attendees > 0),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()

@@ -17,10 +17,13 @@ import {
 import {
   buildAttendanceTrackSections,
   buildAttendanceTrackSectionsWithEvent,
+  collegeProgramGroupsForAttendanceSection,
   departmentLabelForExport,
   enrollmentLabelForAttendanceRow,
   exportDisplayName,
+  multiEventRowsForAttendanceRows,
   multiEventRowsForAttendanceTrackSection,
+  recordsForAttendanceRows,
   recordsForAttendanceTrackSection,
   resolveUserForAttendance,
 } from '@/utils/attendanceEnrollmentGrouping';
@@ -150,6 +153,52 @@ export function OrganiserAttendance() {
       }
     },
     [allAttendanceTrackSections, users]
+  );
+
+  const onSelectedCollegeProgramExport = useCallback(
+    async (programLabel: string, rowsForProgram: typeof attendance, kind: 'pdf' | 'xlsx') => {
+      if (!selectedExportMeta) return;
+      const recs = recordsForAttendanceRows(rowsForProgram, users);
+      if (recs.length === 0) return;
+      const tag = `college_${programLabel.toLowerCase().replace(/[^a-z0-9]+/g, '_')}`;
+      const meta = {
+        ...selectedExportMeta,
+        segmentLabel: `College — ${programLabel} only`,
+        segmentFileTag: tag,
+      };
+      if (kind === 'pdf') {
+        const { exportSingleEventAttendancePdf } = await import('@/utils/attendanceExport');
+        exportSingleEventAttendancePdf(meta, recs);
+      } else {
+        const { exportSingleEventAttendanceXlsx } = await import('@/utils/attendanceExport');
+        exportSingleEventAttendanceXlsx(meta, recs);
+      }
+    },
+    [selectedExportMeta, users]
+  );
+
+  const onAllCollegeProgramExport = useCallback(
+    async (programLabel: string, rowsForProgram: typeof visibleAttendanceRows, kind: 'pdf' | 'xlsx') => {
+      const recs = multiEventRowsForAttendanceRows(rowsForProgram, users);
+      if (recs.length === 0) return;
+      const tag = `college_${programLabel.toLowerCase().replace(/[^a-z0-9]+/g, '_')}`;
+      if (kind === 'pdf') {
+        const { exportMultiEventAttendancePdf } = await import('@/utils/attendanceExport');
+        exportMultiEventAttendancePdf(
+          'All my events — attendance',
+          'Filtered list (matches current search)',
+          recs,
+          { segmentLabel: `College — ${programLabel} only`, segmentFileTag: tag }
+        );
+      } else {
+        const { exportMultiEventAttendanceXlsx } = await import('@/utils/attendanceExport');
+        exportMultiEventAttendanceXlsx('All my events — attendance', recs, {
+          segmentLabel: `College — ${programLabel} only`,
+          segmentFileTag: tag,
+        });
+      }
+    },
+    [users]
   );
 
   const multiExportRows = useMemo(() => {
@@ -320,6 +369,8 @@ export function OrganiserAttendance() {
                   ) : (
                     selectedTrackSections.map((sec) => {
                       const total = sec.subgroups.reduce((acc, g) => acc + g.items.length, 0);
+                      const collegeProgramGroups =
+                        sec.trackId === 'college' ? collegeProgramGroupsForAttendanceSection(sec, users) : [];
                       let seqInTrack = 0;
                       return (
                         <Fragment key={sec.trackId}>
@@ -350,6 +401,24 @@ export function OrganiserAttendance() {
                                   />
                                 )}
                               </div>
+                              {sec.trackId === 'college' && collegeProgramGroups.length > 0 && (
+                                <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                                  {collegeProgramGroups.map((pg) => (
+                                    <AttendanceExportButtons
+                                      key={pg.programKey}
+                                      compact
+                                      disabled={pg.items.length === 0}
+                                      onExportPdf={() => {
+                                        void onSelectedCollegeProgramExport(pg.programLabel, pg.items, 'pdf');
+                                      }}
+                                      onExportExcel={() => {
+                                        void onSelectedCollegeProgramExport(pg.programLabel, pg.items, 'xlsx');
+                                      }}
+                                      exportLabel={`${pg.programLabel} only`}
+                                    />
+                                  ))}
+                                </div>
+                              )}
                             </td>
                           </tr>
                           {sec.subgroups.map((g) => (
@@ -463,6 +532,8 @@ export function OrganiserAttendance() {
               ) : (
                 allAttendanceTrackSections.map((sec) => {
                   const total = sec.subgroups.reduce((acc, g) => acc + g.items.length, 0);
+                  const collegeProgramGroups =
+                    sec.trackId === 'college' ? collegeProgramGroupsForAttendanceSection(sec, users) : [];
                   let seqInTrack = 0;
                   return (
                     <Fragment key={`all-${sec.trackId}`}>
@@ -493,6 +564,24 @@ export function OrganiserAttendance() {
                               />
                             )}
                           </div>
+                          {sec.trackId === 'college' && collegeProgramGroups.length > 0 && (
+                            <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                              {collegeProgramGroups.map((pg) => (
+                                <AttendanceExportButtons
+                                  key={pg.programKey}
+                                  compact
+                                  disabled={pg.items.length === 0}
+                                  onExportPdf={() => {
+                                    void onAllCollegeProgramExport(pg.programLabel, pg.items, 'pdf');
+                                  }}
+                                  onExportExcel={() => {
+                                    void onAllCollegeProgramExport(pg.programLabel, pg.items, 'xlsx');
+                                  }}
+                                  exportLabel={`${pg.programLabel} only`}
+                                />
+                              ))}
+                            </div>
+                          )}
                         </td>
                       </tr>
                       {sec.subgroups.map((g) => (

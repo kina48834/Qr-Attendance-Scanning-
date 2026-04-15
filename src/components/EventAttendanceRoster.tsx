@@ -4,12 +4,16 @@ import { format } from 'date-fns';
 import { ArrowLeft, ClipboardList, Mail, User } from 'lucide-react';
 import { useData } from '@/context/DataContext';
 import { PageHeader, RoleBadge } from '@/components/PageHeader';
+import { QRCodeDisplay } from '@/components/QR/QRCodeDisplay';
 import { eventStatusBadgeClass } from '@/utils/eventStatusStyles';
 import { AttendanceExportButtons } from '@/components/AttendanceExportButtons';
 import { isAttendanceExportTrackScope, type AttendanceExportTrackScope } from '@/utils/academicEnrollmentOrdering';
+import { getEventQrCodeData } from '@/utils/attendanceQR';
 import {
   buildAttendanceTrackSections,
+  collegeProgramGroupsForAttendanceSection,
   exportDisplayName,
+  recordsForAttendanceRows,
   recordsForAttendanceTrackSection,
   resolveUserForAttendance,
 } from '@/utils/attendanceEnrollmentGrouping';
@@ -83,6 +87,28 @@ export function EventAttendanceRoster({ eventsListPath, badge }: EventAttendance
     [exportMeta, trackSections, users]
   );
 
+  const exportSingleCollegeProgram = useCallback(
+    async (programLabel: string, rowsForProgram: typeof rows, kind: 'pdf' | 'xlsx') => {
+      if (!exportMeta) return;
+      const recs = recordsForAttendanceRows(rowsForProgram, users);
+      if (recs.length === 0) return;
+      const tag = `college_${programLabel.toLowerCase().replace(/[^a-z0-9]+/g, '_')}`;
+      const meta = {
+        ...exportMeta,
+        segmentLabel: `College — ${programLabel} only`,
+        segmentFileTag: tag,
+      };
+      if (kind === 'pdf') {
+        const { exportSingleEventAttendancePdf } = await import('@/utils/attendanceExport');
+        exportSingleEventAttendancePdf(meta, recs);
+      } else {
+        const { exportSingleEventAttendanceXlsx } = await import('@/utils/attendanceExport');
+        exportSingleEventAttendanceXlsx(meta, recs);
+      }
+    },
+    [exportMeta, users]
+  );
+
   if (!eventId) {
     return <Navigate to={eventsListPath} replace />;
   }
@@ -117,6 +143,19 @@ export function EventAttendanceRoster({ eventsListPath, badge }: EventAttendance
         </div>
       </div>
 
+      <div className="rounded-2xl border border-slate-200/90 bg-white p-5 shadow-[0_1px_3px_rgba(15,23,42,0.06)] sm:p-6">
+        <h2 className="font-semibold text-slate-900">Event QR code</h2>
+        <p className="mt-1 text-sm text-slate-600">
+          Students scan this QR in the Scan QR page to record attendance for this event.
+        </p>
+        <div className="mt-4 flex flex-col items-center">
+          <QRCodeDisplay value={getEventQrCodeData(event.id, event.qrCodeData)} size={210} eventTitle={event.title} />
+          <p className="mt-2 font-mono text-xs text-slate-500">
+            Event code: {getEventQrCodeData(event.id, event.qrCodeData)}
+          </p>
+        </div>
+      </div>
+
       <div className="overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
         <div className="flex flex-col gap-3 border-b border-slate-100 bg-slate-50/90 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
           <div className="flex items-center gap-2 min-w-0">
@@ -143,6 +182,8 @@ export function EventAttendanceRoster({ eventsListPath, badge }: EventAttendance
           <div className="divide-y divide-slate-100">
             {trackSections.map((sec) => {
               const totalInTrack = sec.subgroups.reduce((acc, g) => acc + g.items.length, 0);
+              const collegeProgramGroups =
+                sec.trackId === 'college' ? collegeProgramGroupsForAttendanceSection(sec, users) : [];
               let seqInTrack = 0;
               return (
                 <Fragment key={sec.trackId}>
@@ -172,6 +213,24 @@ export function EventAttendanceRoster({ eventsListPath, badge }: EventAttendance
                         />
                       )}
                     </div>
+                    {sec.trackId === 'college' && collegeProgramGroups.length > 0 && (
+                      <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                        {collegeProgramGroups.map((pg) => (
+                          <AttendanceExportButtons
+                            key={pg.programKey}
+                            compact
+                            disabled={pg.items.length === 0}
+                            onExportPdf={() => {
+                              void exportSingleCollegeProgram(pg.programLabel, pg.items, 'pdf');
+                            }}
+                            onExportExcel={() => {
+                              void exportSingleCollegeProgram(pg.programLabel, pg.items, 'xlsx');
+                            }}
+                            exportLabel={`${pg.programLabel} only`}
+                          />
+                        ))}
+                      </div>
+                    )}
                   </div>
                   {sec.subgroups.map((g) => (
                     <Fragment key={g.subgroupKey}>

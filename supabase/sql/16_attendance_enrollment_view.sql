@@ -1,6 +1,6 @@
 -- Reporting helper: attendance rows joined to `users.academic_*` for roster exports / analytics.
 -- The app resolves enrollment in the client from `fetchUsers` + `fetchAttendance`; this view mirrors that join in SQL.
--- PDF/Excel attendance exports (app): column "Department" uses the same line as registration enrollment (`users.department` / academic_* via formatUserAcademicLine); year level is inside that text (no separate year column).
+-- PDF/Excel attendance exports (app): column "Department" uses department only (junior high / senior high / college program, no year), and a separate "Grade level" column uses `academic_track` + `academic_year`.
 -- Exports omit student email; display name comes from `users.name` when the row is joined.
 --
 -- If the view already exists without `time_out_at`, `CREATE OR REPLACE VIEW` cannot insert a column in the middle

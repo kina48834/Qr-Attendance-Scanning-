@@ -57,7 +57,7 @@ delete from public.events where id in ('evt-2', 'evt-3', 'evt-4', 'evt-5', 'evt-
 
 -- Exactly one pre-created event: the system welcome event (organiser-owned, published for QR attendance).
 insert into public.events
-  (id, title, description, location, start_date, end_date, organiser_id, organiser_name, status, qr_code_data, max_attendees, created_at, updated_at)
+  (id, title, description, location, start_date, end_date, organiser_id, organiser_name, status, max_attendees, created_at, updated_at)
 values
   (
     'evt-1',
@@ -69,7 +69,6 @@ values
     'org-1',
     'Organiser',
     'published',
-    'EVT-evt-1',
     500,
     now(),
     now()
@@ -83,12 +82,12 @@ on conflict (id) do update set
   organiser_id = excluded.organiser_id,
   organiser_name = excluded.organiser_name,
   status = excluded.status,
-  qr_code_data = excluded.qr_code_data,
   max_attendees = excluded.max_attendees,
   updated_at = now();
 
 -- Sample attendance so demo roster is non-empty (student scanned event QR)
 insert into public.attendance (id, event_id, user_id, user_name, user_email, scanned_at, qr_code_data)
-values
-  ('att-seed-1', 'evt-1', 'stu-1', 'Student', 'student@gmail.com', now(), 'EVT-evt-1')
+select 'att-seed-1', e.id, 'stu-1', 'Student', 'student@gmail.com', now(), e.qr_code_data
+from public.events e
+where e.id = 'evt-1'
 on conflict (event_id, user_id) do nothing;
