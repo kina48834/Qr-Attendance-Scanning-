@@ -146,16 +146,6 @@ export function Login() {
         <p className={landingAuthEyebrowClass}>Andres Soriano Colleges of Bislig</p>
         <h1 className="mt-1 text-xl font-bold tracking-tight text-white sm:text-2xl">Sign in</h1>
         <p className="mt-1 text-xs text-white/65 sm:text-sm">Campus Connect — events, QR attendance, and analytics.</p>
-        {import.meta.env.DEV && (
-          <p className="mt-2 rounded-lg border border-white/15 bg-white/[0.06] px-3 py-2 text-[11px] leading-snug text-white/80">
-            <span className="font-semibold text-white/90">Dev — SQL seed logins:</span> admin@gmail.com /{' '}
-            <code className="text-sky-200/95">admin1919</code>, organiser /{' '}
-            <code className="text-sky-200/95">organiser1919</code>, teacher /{' '}
-            <code className="text-sky-200/95">teacher1919</code>, student /{' '}
-            <code className="text-sky-200/95">student1919</code> (run <code className="text-white/70">06_seed.sql</code> in
-            Supabase if rows are missing).
-          </p>
-        )}
 
         <form onSubmit={handleSubmit} className="relative z-[1] mt-5 space-y-3">
           {studentPendingNotice && (
