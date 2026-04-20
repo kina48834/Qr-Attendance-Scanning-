@@ -53,6 +53,8 @@ export type AttendanceExportRecord = {
   department?: string;
   /** Explicit year/grade column in exports (Grade 7–12, 1st–4th year). */
   yearLevel?: string;
+  /** Track-specific subgroup: JH section, SH strand/track, or college program. */
+  sectionOrStrand?: string;
   /** When set (roster exports), # column restarts at 1 per junior / senior / college block */
   rosterIndexInLevel?: number;
 };
@@ -99,12 +101,13 @@ export function exportSingleEventAttendancePdf(meta: EventAttendanceExportMeta, 
 
   autoTable(doc, {
     startY: y + 4,
-    head: [['#', 'Name', 'Department', 'Grade level', 'Time in', 'Time out']],
+    head: [['#', 'Name', 'Department', 'Grade level', 'Section/Strand/Program', 'Time in', 'Time out']],
     body: rows.map((r, i) => [
       String(r.rosterIndexInLevel ?? i + 1),
       r.userName,
       r.department ?? '—',
       r.yearLevel ?? '—',
+      r.sectionOrStrand ?? '—',
       formatScanned(r.scannedAt),
       formatTimeOut(r.timeOutAt),
     ]),
@@ -117,11 +120,12 @@ export function exportSingleEventAttendancePdf(meta: EventAttendanceExportMeta, 
     },
     columnStyles: {
       0: { halign: 'center', cellWidth: 10 },
-      1: { cellWidth: 34 },
-      2: { cellWidth: 52 },
-      3: { halign: 'center', cellWidth: 24 },
-      4: { halign: 'center', cellWidth: 26 },
-      5: { halign: 'center', cellWidth: 26 },
+      1: { cellWidth: 28 },
+      2: { cellWidth: 40 },
+      3: { halign: 'center', cellWidth: 18 },
+      4: { cellWidth: 38 },
+      5: { halign: 'center', cellWidth: 20 },
+      6: { halign: 'center', cellWidth: 20 },
     },
     alternateRowStyles: { fillColor: [248, 250, 252] },
     margin: { left: margin, right: margin },
@@ -156,12 +160,15 @@ export function exportSingleEventAttendanceXlsx(meta: EventAttendanceExportMeta,
   metaRows.push(['Generated', format(new Date(), 'MMM d, yyyy HH:mm')]);
   metaRows.push(['Total students', rows.length]);
   metaRows.push([]);
-  const tableHead: (string | number)[][] = [['#', 'Name', 'Department', 'Grade level', 'Time in', 'Time out']];
+  const tableHead: (string | number)[][] = [
+    ['#', 'Name', 'Department', 'Grade level', 'Section/Strand/Program', 'Time in', 'Time out'],
+  ];
   const tableBody = rows.map((r, i) => [
     r.rosterIndexInLevel ?? i + 1,
     r.userName,
     r.department ?? '—',
     r.yearLevel ?? '—',
+    r.sectionOrStrand ?? '—',
     formatScanned(r.scannedAt),
     formatTimeOut(r.timeOutAt),
   ]);
@@ -230,13 +237,14 @@ export function exportMultiEventAttendancePdf(
 
   autoTable(doc, {
     startY: y,
-    head: [['#', 'Event', 'Name', 'Department', 'Grade level', 'Time in', 'Time out']],
+    head: [['#', 'Event', 'Name', 'Department', 'Grade level', 'Section/Strand/Program', 'Time in', 'Time out']],
     body: sorted.map((r, i) => [
       String(r.rosterIndexInLevel ?? i + 1),
       r.eventTitle,
       r.userName,
       r.department ?? '—',
       r.yearLevel ?? '—',
+      r.sectionOrStrand ?? '—',
       formatScanned(r.scannedAt),
       formatTimeOut(r.timeOutAt),
     ]),
@@ -252,12 +260,13 @@ export function exportMultiEventAttendancePdf(
     showHead: 'everyPage',
     columnStyles: {
       0: { halign: 'center', cellWidth: 10 },
-      1: { cellWidth: 34 },
-      2: { cellWidth: 26 },
-      3: { cellWidth: 50 },
-      4: { halign: 'center', cellWidth: 20 },
-      5: { halign: 'center', cellWidth: 24 },
-      6: { halign: 'center', cellWidth: 24 },
+      1: { cellWidth: 30 },
+      2: { cellWidth: 20 },
+      3: { cellWidth: 38 },
+      4: { halign: 'center', cellWidth: 16 },
+      5: { cellWidth: 34 },
+      6: { halign: 'center', cellWidth: 18 },
+      7: { halign: 'center', cellWidth: 18 },
     },
   });
 
@@ -285,13 +294,14 @@ export function exportMultiEventAttendanceXlsx(
   headMeta.push(['Total rows', sorted.length], []);
   const aoa: (string | number)[][] = [
     ...headMeta,
-    ['#', 'Event', 'Name', 'Department', 'Grade level', 'Time in', 'Time out'],
+    ['#', 'Event', 'Name', 'Department', 'Grade level', 'Section/Strand/Program', 'Time in', 'Time out'],
     ...sorted.map((r, i) => [
       r.rosterIndexInLevel ?? i + 1,
       r.eventTitle,
       r.userName,
       r.department ?? '—',
       r.yearLevel ?? '—',
+      r.sectionOrStrand ?? '—',
       formatScanned(r.scannedAt),
       formatTimeOut(r.timeOutAt),
     ]),

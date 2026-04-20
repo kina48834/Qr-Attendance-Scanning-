@@ -79,10 +79,15 @@ export function sortAttendanceWithEventByDisplayName(
 /** Roster / PDF “Department” column: same as registration enrollment line. */
 export function departmentLabelForExport(u: User | undefined): string {
   if (!u?.academicTrack) return 'Department not on file';
-  if (u.academicTrack === 'junior_high') return 'Junior high school';
-  if (u.academicTrack === 'senior_high') return 'Senior high school';
-  if (u.academicTrack === 'college') return (u.academicProgram ?? '').trim() || 'College';
+  const full = formatUserAcademicLine(u);
+  if (full) return full;
   return 'Department not on file';
+}
+
+/** Export column for JH section / SH strand / college program. */
+export function sectionOrStrandForExport(u: User | undefined): string {
+  const raw = (u?.academicProgram ?? '').trim();
+  return raw || 'Not set';
 }
 
 /**
@@ -203,6 +208,7 @@ export function recordsForAttendanceTrackSection<T extends AttendanceRecord>(
         timeOutAt: r.timeOutAt,
         department: departmentLabelForExport(u),
         yearLevel: formatAcademicYearLevelLabel(u ?? {}),
+        sectionOrStrand: sectionOrStrandForExport(u),
         rosterIndexInLevel: n,
       });
     }
@@ -228,6 +234,7 @@ export function multiEventRowsForAttendanceTrackSection(
         timeOutAt: r.timeOutAt,
         department: departmentLabelForExport(u),
         yearLevel: formatAcademicYearLevelLabel(u ?? {}),
+        sectionOrStrand: sectionOrStrandForExport(u),
         rosterIndexInLevel: n,
       });
     }
@@ -274,6 +281,7 @@ export function recordsForAttendanceRows<T extends AttendanceRecord>(
       timeOutAt: r.timeOutAt,
       department: departmentLabelForExport(u),
       yearLevel: formatAcademicYearLevelLabel(u ?? {}),
+      sectionOrStrand: sectionOrStrandForExport(u),
       rosterIndexInLevel: i + 1,
     };
   });
@@ -293,6 +301,7 @@ export function multiEventRowsForAttendanceRows(
       timeOutAt: r.timeOutAt,
       department: departmentLabelForExport(u),
       yearLevel: formatAcademicYearLevelLabel(u ?? {}),
+      sectionOrStrand: sectionOrStrandForExport(u),
       rosterIndexInLevel: i + 1,
     };
   });

@@ -90,7 +90,9 @@ export function StudentProfile() {
           </table>
         </div>
         {myAttendance.length === 0 && (
-          <div className="p-8 text-center text-slate-500">No scanned attendance yet. Use Scan QR at an event to record attendance.</div>
+          <div className="p-8 text-center text-slate-500">
+            No scanned attendance yet. After an event starts, use <strong>My event QR</strong> so an organiser can scan you in.
+          </div>
         )}
       </div>
     </div>

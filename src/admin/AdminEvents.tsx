@@ -107,10 +107,10 @@ export function AdminEvents() {
                         type="button"
                         onClick={() => navigate(`/admin/events/${evt.id}/attendance`)}
                         className="inline-flex items-center gap-1.5 rounded-lg border border-campus-primary/35 bg-campus-light/60 px-2.5 py-1.5 text-xs font-medium text-campus-primary hover:bg-campus-light"
-                        title={`Attendance (${getEventAttendance(evt.id).length})`}
+                        title={`Attendance history — time in / time out (${getEventAttendance(evt.id).length})`}
                       >
                         <ClipboardList className="w-3.5 h-3.5" />
-                        <span className="hidden sm:inline">Roster</span>
+                        <span className="hidden sm:inline">Attendance</span>
                       </button>
                       <button
                         type="button"

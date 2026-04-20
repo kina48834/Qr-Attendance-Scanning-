@@ -34,6 +34,6 @@ begin
 end $$;
 
 comment on column public.events.qr_code_data is
-  'Auto-generated unique event QR payload (EVT-<random>) used in event details and StudentScan / eventMatchesScannedValue.';
+  'Legacy unique EVT-<random> payload; app attendance uses student personal QR ATTEND:userId:eventId. Column kept for schema compatibility.';
 comment on constraint uq_events_qr_code_data on public.events is
   'Guarantees every event QR payload is unique.';

@@ -80,9 +80,9 @@ comment on column public.users.role is 'administrator | organiser | student | te
 comment on column public.users.approval_status is 'Student/teacher approval: pending on self-register, approved/rejected by admin in User management; null for administrator/organiser.';
 comment on column public.users.phone is 'Teacher profile; required when role = teacher.';
 comment on column public.users.department is 'Summary line for lists/search; set from Department (Register/Admin) for students/teachers (formatAcademicDepartmentLine) or legacy teacher text.';
-comment on column public.users.academic_track is 'junior_high | senior_high | college — Register.tsx / AdminUsers.tsx: Track buttons, year/grade, and (college) program list. Rosters: JH (years 1–4 stored, UI Grade 7–10), SH (11–12), college (years 1–4 + program).';
+comment on column public.users.academic_track is 'junior_high | senior_high | college — Register.tsx / AdminUsers.tsx: interactive Track buttons, grade/year buttons, and section/strand/program buttons. Rosters: JH (years 1–4 stored, UI Grade 7–10), SH (11–12), college (years 1–4 + program).';
 comment on column public.users.academic_year is 'JH: stored 1–4 maps to UI Grade 7–10; SH: 11–12 (Grade 11/12); college: 1–4 with 1st–Fourth year labels in app; idx_users_academic_roster matches app ordering.';
-comment on column public.users.academic_program is 'College program when track = college; values from COLLEGE_PROGRAMS in app (BS Accountancy, BS CS, BS IT, …), chosen via registration/admin program buttons; otherwise null. Sub-sorts within college year on rosters.';
+comment on column public.users.academic_program is 'Track-specific subgroup selected in registration/admin Department UI via button selectors: JH section list by grade, SH strand/track list (BE/ASSH/STEM/TECHPRO), or college program (COLLEGE_PROGRAMS). Used in subgrouping and roster sort/display.';
 comment on column public.users.employee_id is 'Teacher staff ID; required when role = teacher.';
 comment on column public.users.office_location is 'Optional teacher office/room.';
 comment on column public.users.avatar is 'Optional profile image URL (reserved for future UI).';
@@ -92,27 +92,27 @@ comment on table public.events is
 
 comment on column public.events.organiser_id is 'FK to users; organiser or teacher (AdminEventForm).';
 comment on column public.events.organiser_name is 'Denormalised display name for lists and search.';
-comment on column public.events.start_date is 'Must be >= now() on insert; updates blocked from moving into the past while the event is not fully ended (trigger trg_events_validate_future_dates).';
+comment on column public.events.start_date is 'Insert: must be >= now() for draft/cancelled and for published rows that already ended; completed rows may be historical; published rows with end_date >= now() may have start in the past (in progress). Updates: blocked from moving into the past while not fully ended (trg_events_validate_future_dates).';
 comment on column public.events.end_date is 'Must be >= start_date (chk_events_end_after_start) and >= now() on insert; same update rule as start_date when the event has not fully ended.';
-comment on column public.events.status is 'draft | published | completed | cancelled — gates student scan.';
+comment on column public.events.status is 'draft | published | completed | cancelled — gates organiser scanning of student ATTEND QR and student My QR visibility.';
 comment on column public.events.qr_code_data is
-  'Auto-generated unique event QR payload (EVT-<random>) used in event details and StudentScan / eventMatchesScannedValue.';
+  'Legacy auto-generated EVT-<random> payload kept unique for the row; primary attendance flow uses student personal QR ATTEND:userId:eventId (not shown in app UI).';
 comment on column public.events.max_attendees is 'Optional cap from event forms.';
 comment on constraint uq_events_qr_code_data on public.events is
   'Guarantees every event QR payload is unique.';
 
 comment on table public.attendance is
-  'One row per student per event: StudentScan (venue QR) or OrganiserScanAttendance (ATTEND:userId:eventId). `scanned_at` = time in; optional `time_out_at` = student checkout from History. Rosters join `users` for grouping; exports in `attendanceExport.ts` include Department + Grade level columns, with level-only and college-program-only export scopes.';
+  'One row per student per event: organiser (or event owner) scans student personal QR `ATTEND:userId:eventId`. `scanned_at` = first scan (time in); `time_out_at` = second scan of the same QR (time out). Rosters join `users` for grouping; exports include Department + Grade level + Section/Strand columns.';
 
 comment on column public.attendance.scanned_at is 'QR check-in (time in).';
 
 comment on column public.attendance.time_out_at is
-  'Optional checkout from student History; null until set. Must be >= scanned_at (`chk_attendance_time_out_after_scan`).';
+  'Second organiser scan of the same student event QR (time out); null until then. Must be >= scanned_at (`chk_attendance_time_out_after_scan`).';
 
 comment on column public.attendance.qr_code_data is 'Raw or normalised scanned string stored for audit.';
 
 comment on constraint uq_attendance_event_user on public.attendance is
-  'Prevents duplicate attendance for same user+event (matches StudentScan / OrganiserScan duplicate checks).';
+  'Prevents duplicate attendance rows for same user+event; checkout updates the same row (`time_out_at`).';
 
 comment on table public.event_registrations is
   'Student registers for an event (StudentEvents); analytics count registered vs attended.';

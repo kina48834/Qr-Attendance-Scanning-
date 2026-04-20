@@ -17,7 +17,6 @@ import {
   fetchUserByEmailForLegacyLogin,
   fetchUsers,
   insertAttendance,
-  setAttendanceTimeOut,
   insertEvent,
   insertRegistration,
   insertUser,
@@ -25,6 +24,7 @@ import {
   patchUser,
   removeEvent,
   removeUser,
+  setAttendanceTimeOutForEventUser,
 } from '@/supabase/dataService';
 import { authSignUp, authSignOut, normalizeAuthEmail, SUPABASE_AUTH_PASSWORD_MARKER } from '@/supabase/authFlow';
 
@@ -90,8 +90,8 @@ interface DataContextType {
   ) => void | Promise<void>;
   deleteUser: (id: string) => void | Promise<void>;
   recordAttendance: (record: Omit<AttendanceRecord, 'id' | 'scannedAt'>) => void | Promise<void>;
-  /** Student: record checkout for own attendance row (once). */
-  recordAttendanceTimeOut: (attendanceId: string, userId: string) => void | Promise<void>;
+  /** Event owner: second scan of student QR records time out (same event + user). */
+  recordCheckoutScan: (eventId: string, studentUserId: string, eventOwnerUserId: string) => void | Promise<void>;
   registerForEvent: (eventId: string, userId: string) => void | Promise<void>;
   getStats: () => DashboardStats;
   getAnalytics: () => AnalyticsData;
@@ -307,10 +307,17 @@ export function DataProvider({ children }: { children: ReactNode }) {
     []
   );
 
-  const recordAttendanceTimeOut = useCallback(async (attendanceId: string, userId: string) => {
-    const updated = await setAttendanceTimeOut(attendanceId, userId);
-    setAttendance((prev) => prev.map((a) => (a.id === attendanceId ? updated : a)));
-  }, []);
+  const recordCheckoutScan = useCallback(
+    async (eventId: string, studentUserId: string, eventOwnerUserId: string) => {
+      const ev = events.find((e) => e.id === eventId);
+      if (!ev || ev.organiserId !== eventOwnerUserId) {
+        throw new Error('You can only record checkout for events you own.');
+      }
+      const updated = await setAttendanceTimeOutForEventUser(eventId, studentUserId);
+      setAttendance((prev) => prev.map((a) => (a.id === updated.id ? updated : a)));
+    },
+    [events]
+  );
 
   const registerForEvent = useCallback(
     async (eventId: string, userId: string) => {
@@ -381,7 +388,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         updateUser,
         deleteUser,
         recordAttendance,
-        recordAttendanceTimeOut,
+        recordCheckoutScan,
         registerForEvent,
         getStats,
         getAnalytics,

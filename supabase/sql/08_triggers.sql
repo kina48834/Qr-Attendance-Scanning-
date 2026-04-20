@@ -7,6 +7,14 @@ language plpgsql
 as $f$
 begin
   if tg_op = 'INSERT' then
+    -- Historical / seed rows: completed events may have past start and end.
+    if new.status = 'completed'::event_status then
+      return new;
+    end if;
+    -- Published event still in progress: start may be in the past if it has not ended yet.
+    if new.status = 'published'::event_status and new.end_date >= now() then
+      return new;
+    end if;
     if new.start_date < now() then
       raise exception 'events.start_date cannot be in the past';
     end if;

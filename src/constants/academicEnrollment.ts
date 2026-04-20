@@ -15,9 +15,23 @@ export const JUNIOR_HIGH_YEAR_OPTIONS = [
   { value: '4', label: 'Grade 10' },
 ] as const;
 
+export const JUNIOR_HIGH_SECTIONS_BY_YEAR = {
+  '1': ['Skinner', 'Dewey', 'Freud', 'Locke', 'Pigget', 'Rousseau', 'Thorndike'],
+  '2': ['Socrates', 'Mencius', 'Archimedes', 'Aristotle', 'Confucius', 'Emerson', 'Plato'],
+  '3': ['Rembrandt', 'Braque', 'Da Vinci', 'Froebel', 'Picasso', 'Van Gogh', 'Vermeer'],
+  '4': ['Vygotsky', 'Ausubel', 'Bruner', 'Descartes', 'Gardner', 'Kohlberg', 'Voltaire'],
+} as const;
+
 export const SENIOR_HIGH_YEAR_OPTIONS = [
   { value: '11', label: 'Grade 11' },
   { value: '12', label: 'Grade 12' },
+] as const;
+
+export const SENIOR_HIGH_STRANDS = [
+  'Business Entrepreneurship (BE)',
+  'Arts, Social Sciences & Humanities (ASSH)',
+  'Science, Technology, Engineering & Mathematics (STEM)',
+  'Technical Professional (TECHPRO)',
 ] as const;
 
 export const COLLEGE_YEAR_OPTIONS = [
@@ -56,32 +70,49 @@ export function formatAcademicDepartmentLine(
   year: string,
   program: string | null | undefined
 ): string {
+  const p = (program ?? '').trim();
   if (track === 'junior_high') {
     const y = JUNIOR_HIGH_YEAR_OPTIONS.find((o) => o.value === year);
-    return `Junior high — ${y?.label ?? `Year ${year}`}`;
+    return `Junior high — ${y?.label ?? `Year ${year}`} — ${p || 'Section not set'}`;
   }
   if (track === 'senior_high') {
     const y = SENIOR_HIGH_YEAR_OPTIONS.find((o) => o.value === year);
-    return `Senior high — ${y?.label ?? `Grade ${year}`}`;
+    return `Senior high — ${y?.label ?? `Grade ${year}`} — ${p || 'Strand not set'}`;
   }
   const y = COLLEGE_YEAR_OPTIONS.find((o) => o.value === year);
-  const prog = (program ?? '').trim() || 'Program';
+  const prog = p || 'Program';
   return `College — ${prog} — ${y?.label ?? `Year ${year}`}`;
+}
+
+export function juniorHighSectionsForYear(year: string): readonly string[] {
+  return JUNIOR_HIGH_SECTIONS_BY_YEAR[year as keyof typeof JUNIOR_HIGH_SECTIONS_BY_YEAR] ?? [];
 }
 
 export function validateAcademicEnrollment(v: AcademicEnrollmentValue): string | null {
   if (!v.track) return 'Select a track (junior high, senior high, or college).';
   if (!v.year) return 'Select a year or grade level.';
+  const program = v.program.trim();
   if (v.track === 'junior_high' && !JUNIOR_HIGH_YEAR_OPTIONS.some((o) => o.value === v.year)) {
     return 'Choose a valid junior high grade (Grade 7–10).';
   }
   if (v.track === 'senior_high' && !SENIOR_HIGH_YEAR_OPTIONS.some((o) => o.value === v.year)) {
     return 'Choose Grade 11 or Grade 12.';
   }
+  if (v.track === 'junior_high') {
+    const sections = juniorHighSectionsForYear(v.year);
+    if (!program) return 'Select a junior high section.';
+    if (!sections.includes(program)) return 'Select a valid section for the chosen grade.';
+  }
+  if (v.track === 'senior_high') {
+    if (!program) return 'Select a senior high strand/track.';
+    if (!(SENIOR_HIGH_STRANDS as readonly string[]).includes(program)) {
+      return 'Select a strand/track from the list.';
+    }
+  }
   if (v.track === 'college') {
     if (!COLLEGE_YEAR_OPTIONS.some((o) => o.value === v.year)) return 'Choose a valid college year.';
-    if (!v.program.trim()) return 'Select a college program.';
-    if (!(COLLEGE_PROGRAMS as readonly string[]).includes(v.program.trim())) {
+    if (!program) return 'Select a college program.';
+    if (!(COLLEGE_PROGRAMS as readonly string[]).includes(program)) {
       return 'Select a program from the list.';
     }
   }

@@ -1,5 +1,5 @@
 import type { User } from '@/types';
-import { formatAcademicDepartmentLine } from '@/constants/academicEnrollment';
+import { formatAcademicDepartmentLine, SENIOR_HIGH_STRANDS } from '@/constants/academicEnrollment';
 
 export type EnrollmentTrackId = 'junior_high' | 'senior_high' | 'college' | 'unspecified';
 
@@ -54,9 +54,13 @@ export function enrollmentSubgroupSortKey(
   const tid = enrollmentTrackId(u);
   if (tid === 'unspecified') return 'z_unspecified';
   const y = (u?.academicYear ?? '').trim();
-  if (tid === 'junior_high') return `aa_jh_${y.padStart(4, '0')}`;
-  if (tid === 'senior_high') return `bb_sh_${y.padStart(4, '0')}`;
   const prog = (u?.academicProgram ?? '').trim().toLowerCase();
+  if (tid === 'junior_high') return `aa_jh_${y.padStart(4, '0')}_${prog}`;
+  if (tid === 'senior_high') {
+    const idx = SENIOR_HIGH_STRANDS.findIndex((s) => s.toLowerCase() === prog);
+    const rank = idx >= 0 ? String(idx).padStart(4, '0') : `zzzz_${prog}`;
+    return `bb_sh_${y.padStart(4, '0')}_${rank}`;
+  }
   return `cc_co_${y.padStart(4, '0')}_${prog}`;
 }
 

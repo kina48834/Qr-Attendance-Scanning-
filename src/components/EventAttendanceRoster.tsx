@@ -4,7 +4,6 @@ import { format } from 'date-fns';
 import { ArrowLeft, ClipboardList, Mail, User } from 'lucide-react';
 import { useData } from '@/context/DataContext';
 import { PageHeader, RoleBadge } from '@/components/PageHeader';
-import { QRCodeDisplay } from '@/components/QR/QRCodeDisplay';
 import { eventStatusBadgeClass } from '@/utils/eventStatusStyles';
 import { AttendanceExportButtons } from '@/components/AttendanceExportButtons';
 import { DepartmentSortToggle } from '@/components/DepartmentSortToggle';
@@ -18,7 +17,6 @@ import {
   type EnrollmentSortDir,
   type EnrollmentTrackId,
 } from '@/utils/academicEnrollmentOrdering';
-import { getEventQrCodeData } from '@/utils/attendanceQR';
 import {
   buildAttendanceTrackSections,
   collegeProgramGroupsForAttendanceSection,
@@ -177,7 +175,7 @@ export function EventAttendanceRoster({ eventsListPath, badge }: EventAttendance
       <div className="space-y-3">
         <PageHeader
           title={event.title}
-          description="Numbered list of every student who scanned the event QR (all campus events, including those created by organisers)."
+          description="Numbered list of students checked in when an organiser scanned their personal event QR (time in / time out)."
           badge={badge}
         />
         <div className="flex flex-wrap items-center gap-2 text-sm pl-3 sm:pl-4">
@@ -188,19 +186,6 @@ export function EventAttendanceRoster({ eventsListPath, badge }: EventAttendance
           <span className="text-slate-500 tabular-nums">
             {format(new Date(event.startDate), 'MMM d, yyyy HH:mm')}
           </span>
-        </div>
-      </div>
-
-      <div className="rounded-2xl border border-slate-200/90 bg-white p-5 shadow-[0_1px_3px_rgba(15,23,42,0.06)] sm:p-6">
-        <h2 className="font-semibold text-slate-900">Event QR code</h2>
-        <p className="mt-1 text-sm text-slate-600">
-          Students scan this QR in the Scan QR page to record attendance for this event.
-        </p>
-        <div className="mt-4 flex flex-col items-center">
-          <QRCodeDisplay value={getEventQrCodeData(event.id, event.qrCodeData)} size={210} eventTitle={event.title} />
-          <p className="mt-2 font-mono text-xs text-slate-500">
-            Event code: {getEventQrCodeData(event.id, event.qrCodeData)}
-          </p>
         </div>
       </div>
 
@@ -224,7 +209,7 @@ export function EventAttendanceRoster({ eventsListPath, badge }: EventAttendance
         </div>
         {rows.length === 0 ? (
           <div className="p-10 text-center text-sm text-slate-500">
-            No attendance recorded yet. Students appear here after they scan the event QR.
+            No attendance recorded yet. Students appear here after an organiser scans their personal event QR.
           </div>
         ) : (
           <div className="divide-y divide-slate-100">

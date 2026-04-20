@@ -235,7 +235,7 @@ export const organiserNav = [
 export const studentNav = [
   { to: '/student', label: 'Events', icon: <Calendar className="w-5 h-5" /> },
   { to: '/student/notifications', label: 'Reminders', icon: <Bell className="w-5 h-5" /> },
-  { to: '/student/scan', label: 'Scan QR', icon: <QrCode className="w-5 h-5" /> },
+  { to: '/student/scan', label: 'My event QR', icon: <QrCode className="w-5 h-5" /> },
   { to: '/student/history', label: 'History of attendance', icon: <History className="w-5 h-5" /> },
   { to: '/student/profile', label: 'Profile', icon: <User className="w-5 h-5" /> },
 ];
@@ -243,6 +243,7 @@ export const studentNav = [
 export const teacherNav = [
   { to: '/teacher', label: 'Dashboard', icon: <LayoutDashboard className="w-5 h-5" /> },
   { to: '/teacher/events', label: 'Events', icon: <Calendar className="w-5 h-5" /> },
+  { to: '/teacher/scan-attendance', label: 'Scan students', icon: <QrCode className="w-5 h-5" /> },
   { to: '/teacher/analytics', label: 'Analytics', icon: <BarChart3 className="w-5 h-5" /> },
   { to: '/teacher/profile', label: 'Profile', icon: <User className="w-5 h-5" /> },
 ];

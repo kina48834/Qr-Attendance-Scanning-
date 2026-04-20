@@ -62,8 +62,35 @@ begin
   shape_ok := true;
   if v_track is not null and v_year is not null then
     shape_ok :=
-      (v_track = 'junior_high' and v_year in ('1', '2', '3', '4') and (v_program is null or btrim(v_program) = ''))
-      or (v_track = 'senior_high' and v_year in ('11', '12') and (v_program is null or btrim(v_program) = ''))
+      (
+        v_track = 'junior_high'
+        and v_year in ('1', '2', '3', '4')
+        and (
+          (v_year = '1' and v_program in ('Skinner', 'Dewey', 'Freud', 'Locke', 'Pigget', 'Rousseau', 'Thorndike'))
+          or (
+            v_year = '2'
+            and v_program in ('Socrates', 'Mencius', 'Archimedes', 'Aristotle', 'Confucius', 'Emerson', 'Plato')
+          )
+          or (
+            v_year = '3'
+            and v_program in ('Rembrandt', 'Braque', 'Da Vinci', 'Froebel', 'Picasso', 'Van Gogh', 'Vermeer')
+          )
+          or (
+            v_year = '4'
+            and v_program in ('Vygotsky', 'Ausubel', 'Bruner', 'Descartes', 'Gardner', 'Kohlberg', 'Voltaire')
+          )
+        )
+      )
+      or (
+        v_track = 'senior_high'
+        and v_year in ('11', '12')
+        and v_program in (
+          'Business Entrepreneurship (BE)',
+          'Arts, Social Sciences & Humanities (ASSH)',
+          'Science, Technology, Engineering & Mathematics (STEM)',
+          'Technical Professional (TECHPRO)'
+        )
+      )
       or (
         v_track = 'college'
         and v_year in ('1', '2', '3', '4')
@@ -79,14 +106,18 @@ begin
             when '2' then 'Grade 8'
             when '3' then 'Grade 9'
             when '4' then 'Grade 10'
-          end;
+          end
+          || ' — '
+          || coalesce(v_program, 'Section not set');
       elsif v_track = 'senior_high' then
         v_dept :=
           'Senior high — '
           || case v_year
             when '11' then 'Grade 11'
             when '12' then 'Grade 12'
-          end;
+          end
+          || ' — '
+          || coalesce(v_program, 'Strand not set');
       else
         yr_label :=
           case v_year
@@ -103,10 +134,6 @@ begin
       v_program := null;
       v_dept := null;
     end if;
-  end if;
-
-  if v_track <> 'college' then
-    v_program := null;
   end if;
 
   if v_role = 'teacher'::user_role then

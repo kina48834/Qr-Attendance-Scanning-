@@ -219,7 +219,7 @@ export function AdminUsers() {
           ? {
               academicTrack: form.academic.track as AcademicTrack,
               academicYear: form.academic.year,
-              academicProgram: form.academic.track === 'college' ? form.academic.program : null,
+              academicProgram: form.academic.program.trim() || null,
             }
           : {}),
       });
@@ -287,11 +287,11 @@ export function AdminUsers() {
       updates.officeLocation = (form.officeLocation ?? '').trim();
       updates.academicTrack = form.academic.track as AcademicTrack;
       updates.academicYear = form.academic.year;
-      updates.academicProgram = form.academic.track === 'college' ? form.academic.program : null;
+      updates.academicProgram = form.academic.program.trim() || null;
       updates.department = formatAcademicDepartmentLine(
         form.academic.track as AcademicTrack,
         form.academic.year,
-        form.academic.track === 'college' ? form.academic.program : null
+        form.academic.program.trim() || null
       );
     } else if (form.role === 'student') {
       updates.phone = '';
@@ -299,11 +299,11 @@ export function AdminUsers() {
       updates.officeLocation = '';
       updates.academicTrack = form.academic.track as AcademicTrack;
       updates.academicYear = form.academic.year;
-      updates.academicProgram = form.academic.track === 'college' ? form.academic.program : null;
+      updates.academicProgram = form.academic.program.trim() || null;
       updates.department = formatAcademicDepartmentLine(
         form.academic.track as AcademicTrack,
         form.academic.year,
-        form.academic.track === 'college' ? form.academic.program : null
+        form.academic.program.trim() || null
       );
     } else {
       updates.phone = '';

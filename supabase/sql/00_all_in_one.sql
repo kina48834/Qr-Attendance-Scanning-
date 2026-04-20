@@ -141,7 +141,7 @@ alter table public.attendance
   );
 
 comment on column public.attendance.time_out_at is
-  'When the student tapped Time out on History; null until recorded. Must be on or after scanned_at (QR check-in).';
+  'When the organiser scanned the student’s personal event QR the second time (time out); null until then. Must be on or after scanned_at.';
 create index if not exists idx_event_registrations_user_id on public.event_registrations(user_id);
 
 -- --- 07_constraints.sql ---
@@ -278,12 +278,64 @@ alter table public.users
         (
           academic_track = 'junior_high'
           and academic_year in ('1', '2', '3', '4')
-          and (academic_program is null or btrim(academic_program) = '')
+          and (
+            academic_program is null
+            or btrim(academic_program) = ''
+            or (
+              academic_year = '1'
+              and btrim(academic_program) in ('Skinner', 'Dewey', 'Freud', 'Locke', 'Pigget', 'Rousseau', 'Thorndike')
+            )
+            or (
+              academic_year = '2'
+              and btrim(academic_program) in (
+                'Socrates',
+                'Mencius',
+                'Archimedes',
+                'Aristotle',
+                'Confucius',
+                'Emerson',
+                'Plato'
+              )
+            )
+            or (
+              academic_year = '3'
+              and btrim(academic_program) in (
+                'Rembrandt',
+                'Braque',
+                'Da Vinci',
+                'Froebel',
+                'Picasso',
+                'Van Gogh',
+                'Vermeer'
+              )
+            )
+            or (
+              academic_year = '4'
+              and btrim(academic_program) in (
+                'Vygotsky',
+                'Ausubel',
+                'Bruner',
+                'Descartes',
+                'Gardner',
+                'Kohlberg',
+                'Voltaire'
+              )
+            )
+          )
         )
         or (
           academic_track = 'senior_high'
           and academic_year in ('11', '12')
-          and (academic_program is null or btrim(academic_program) = '')
+          and (
+            academic_program is null
+            or btrim(academic_program) = ''
+            or btrim(academic_program) in (
+              'Business Entrepreneurship (BE)',
+              'Arts, Social Sciences & Humanities (ASSH)',
+              'Science, Technology, Engineering & Mathematics (STEM)',
+              'Technical Professional (TECHPRO)'
+            )
+          )
         )
         or (
           academic_track = 'college'
@@ -304,6 +356,12 @@ language plpgsql
 as $f$
 begin
   if tg_op = 'INSERT' then
+    if new.status = 'completed'::event_status then
+      return new;
+    end if;
+    if new.status = 'published'::event_status and new.end_date >= now() then
+      return new;
+    end if;
     if new.start_date < now() then
       raise exception 'events.start_date cannot be in the past';
     end if;
@@ -433,9 +491,9 @@ comment on column public.users.role is 'administrator | organiser | student | te
 comment on column public.users.approval_status is 'Student/teacher approval: pending on self-register, approved/rejected by admin in User management; null for administrator/organiser.';
 comment on column public.users.phone is 'Teacher profile; required when role = teacher.';
 comment on column public.users.department is 'Summary line for lists/search; from Department (Register/Admin) or legacy teacher text.';
-comment on column public.users.academic_track is 'junior_high | senior_high | college — Register.tsx / AdminUsers.tsx: Track buttons, year/grade, and (college) program list. Rosters: JH (years 1–4 stored, UI Grade 7–10), SH (11–12), college (years 1–4 + program).';
+comment on column public.users.academic_track is 'junior_high | senior_high | college — Register.tsx / AdminUsers.tsx: interactive Track buttons, grade/year buttons, and section/strand/program buttons. Rosters: JH (years 1–4 stored, UI Grade 7–10), SH (11–12), college (years 1–4 + program).';
 comment on column public.users.academic_year is 'JH: stored 1–4 maps to UI Grade 7–10; SH: 11–12 (Grade 11/12); college: 1–4 with 1st–Fourth year labels in app; idx_users_academic_roster matches app ordering.';
-comment on column public.users.academic_program is 'College program when track = college; values from COLLEGE_PROGRAMS in app (BS Accountancy, BS CS, BS IT, …), chosen via registration/admin program buttons; else null. Sub-sorts within college year on rosters.';
+comment on column public.users.academic_program is 'Track-specific subgroup selected in registration/admin Department UI via button selectors: JH section list by grade, SH strand/track list (BE/ASSH/STEM/TECHPRO), or college program (COLLEGE_PROGRAMS). Used in subgrouping and roster sort/display.';
 comment on column public.users.employee_id is 'Teacher staff ID; required when role = teacher.';
 comment on column public.users.office_location is 'Optional teacher office/room.';
 comment on column public.users.avatar is 'Optional profile image URL (reserved for future UI).';
@@ -443,22 +501,22 @@ comment on table public.events is
   'Events browsed by students. Inserts/updates: admin / organiser (app). Teachers view events and attendance rosters only — no edit/delete in app; teacher Events UI does not add new rows.';
 comment on column public.events.organiser_id is 'FK to users; organiser or teacher (AdminEventForm).';
 comment on column public.events.organiser_name is 'Denormalised display name for lists and search.';
-comment on column public.events.start_date is 'Must be >= now() on insert; updates blocked from moving into the past while the event is not fully ended (trigger trg_events_validate_future_dates).';
+comment on column public.events.start_date is 'Insert: must be >= now() for draft/cancelled and for published rows that already ended; completed rows may be historical; published rows with end_date >= now() may have start in the past (in progress). Updates: blocked from moving into the past while not fully ended (trg_events_validate_future_dates).';
 comment on column public.events.end_date is 'Must be >= start_date (chk_events_end_after_start) and >= now() on insert; same update rule as start_date when the event has not fully ended.';
-comment on column public.events.status is 'draft | published | completed | cancelled — gates student scan.';
+comment on column public.events.status is 'draft | published | completed | cancelled — gates organiser scanning of student ATTEND QR and student My QR visibility.';
 comment on column public.events.qr_code_data is
-  'Auto-generated unique event QR payload (EVT-<random>) used in event details and StudentScan / eventMatchesScannedValue.';
+  'Legacy auto-generated EVT-<random> payload kept unique for the row; primary attendance flow uses student personal QR ATTEND:userId:eventId (not shown in app UI).';
 comment on column public.events.max_attendees is 'Optional cap from event forms.';
 comment on constraint uq_events_qr_code_data on public.events is
   'Guarantees every event QR payload is unique.';
 comment on table public.attendance is
-  'One row per student per event: StudentScan (venue QR) or OrganiserScanAttendance (ATTEND:userId:eventId). `scanned_at` = time in; optional `time_out_at` = student checkout from History. Rosters join `users` for grouping; exports in `attendanceExport.ts` include Department + Grade level columns, with level-only and college-program-only export scopes.';
+  'One row per student per event: organiser (or event owner) scans student personal QR `ATTEND:userId:eventId`. `scanned_at` = first scan (time in); `time_out_at` = second scan (time out). Rosters join `users` for grouping; exports include Department + Grade level + Section/Strand columns.';
 comment on column public.attendance.scanned_at is 'QR check-in (time in).';
 comment on column public.attendance.time_out_at is
-  'Optional checkout from student History; null until set. Must be >= scanned_at (`chk_attendance_time_out_after_scan`).';
+  'Second organiser scan of the same student event QR (time out); null until then. Must be >= scanned_at (`chk_attendance_time_out_after_scan`).';
 comment on column public.attendance.qr_code_data is 'Raw or normalised scanned string stored for audit.';
 comment on constraint uq_attendance_event_user on public.attendance is
-  'Prevents duplicate attendance for same user+event (matches StudentScan / OrganiserScan duplicate checks).';
+  'Prevents duplicate attendance rows for same user+event; checkout updates the same row (`time_out_at`).';
 comment on table public.event_registrations is
   'Student registers for an event (StudentEvents); analytics count registered vs attended.';
 comment on constraint uq_event_registrations_event_user on public.event_registrations is
@@ -555,8 +613,35 @@ begin
   shape_ok := true;
   if v_track is not null and v_year is not null then
     shape_ok :=
-      (v_track = 'junior_high' and v_year in ('1', '2', '3', '4') and (v_program is null or btrim(v_program) = ''))
-      or (v_track = 'senior_high' and v_year in ('11', '12') and (v_program is null or btrim(v_program) = ''))
+      (
+        v_track = 'junior_high'
+        and v_year in ('1', '2', '3', '4')
+        and (
+          (v_year = '1' and v_program in ('Skinner', 'Dewey', 'Freud', 'Locke', 'Pigget', 'Rousseau', 'Thorndike'))
+          or (
+            v_year = '2'
+            and v_program in ('Socrates', 'Mencius', 'Archimedes', 'Aristotle', 'Confucius', 'Emerson', 'Plato')
+          )
+          or (
+            v_year = '3'
+            and v_program in ('Rembrandt', 'Braque', 'Da Vinci', 'Froebel', 'Picasso', 'Van Gogh', 'Vermeer')
+          )
+          or (
+            v_year = '4'
+            and v_program in ('Vygotsky', 'Ausubel', 'Bruner', 'Descartes', 'Gardner', 'Kohlberg', 'Voltaire')
+          )
+        )
+      )
+      or (
+        v_track = 'senior_high'
+        and v_year in ('11', '12')
+        and v_program in (
+          'Business Entrepreneurship (BE)',
+          'Arts, Social Sciences & Humanities (ASSH)',
+          'Science, Technology, Engineering & Mathematics (STEM)',
+          'Technical Professional (TECHPRO)'
+        )
+      )
       or (
         v_track = 'college'
         and v_year in ('1', '2', '3', '4')
@@ -572,14 +657,18 @@ begin
             when '2' then 'Grade 8'
             when '3' then 'Grade 9'
             when '4' then 'Grade 10'
-          end;
+          end
+          || ' — '
+          || coalesce(v_program, 'Section not set');
       elsif v_track = 'senior_high' then
         v_dept :=
           'Senior high — '
           || case v_year
             when '11' then 'Grade 11'
             when '12' then 'Grade 12'
-          end;
+          end
+          || ' — '
+          || coalesce(v_program, 'Strand not set');
       else
         yr_label :=
           case v_year
@@ -596,10 +685,6 @@ begin
       v_program := null;
       v_dept := null;
     end if;
-  end if;
-
-  if v_track <> 'college' then
-    v_program := null;
   end if;
 
   if v_role = 'teacher'::user_role then
@@ -803,7 +888,7 @@ values
     'student@gmail.com',
     'Student',
     'student',
-    null,
+    'approved',
     null,
     'College — BS Information Technology — 1st — First year',
     null,
@@ -827,26 +912,117 @@ on conflict (id) do update set
   academic_program = excluded.academic_program,
   password = excluded.password;
 
--- Drop legacy multi-event demo rows (safe if ids never existed)
-delete from public.attendance where event_id in ('evt-2', 'evt-3', 'evt-4', 'evt-5', 'evt-6');
-delete from public.event_registrations where event_id in ('evt-2', 'evt-3', 'evt-4', 'evt-5', 'evt-6');
-delete from public.events where id in ('evt-2', 'evt-3', 'evt-4', 'evt-5', 'evt-6');
+-- Demo events (evt-1..evt-6): published, draft, completed, teacher-owned — visible to students via fetchEvents()
+delete from public.attendance where event_id in ('evt-1', 'evt-2', 'evt-3', 'evt-4', 'evt-5', 'evt-6');
+delete from public.event_registrations where event_id in ('evt-1', 'evt-2', 'evt-3', 'evt-4', 'evt-5', 'evt-6');
+delete from public.events where id in ('evt-1', 'evt-2', 'evt-3', 'evt-4', 'evt-5', 'evt-6');
 
--- Exactly one pre-created event (organiser-owned, published for QR attendance).
-insert into public.events
-  (id, title, description, location, start_date, end_date, organiser_id, organiser_name, status, max_attendees, created_at, updated_at)
+begin;
+alter table public.events disable trigger trg_events_validate_future_dates;
+
+insert into public.events (
+  id,
+  title,
+  description,
+  location,
+  start_date,
+  end_date,
+  organiser_id,
+  organiser_name,
+  status,
+  qr_code_data,
+  max_attendees,
+  created_at,
+  updated_at
+)
 values
   (
     'evt-1',
     'Welcome to Campus Connect',
-    'Your welcome event — already in the system when Campus Connect starts. Meet the team, learn how to browse events, and scan the venue QR here to practice attendance. Teachers and admins can open this event to see who checked in.',
+    'Orientation-style welcome: students use My event QR; organisers scan for time in and again for time out. Admins and teachers can open the roster for this event.',
     'Main Hall',
-    date_trunc('minute', now() + interval '30 days'),
-    date_trunc('minute', now() + interval '30 days' + interval '4 hours'),
+    date_trunc('minute', now() + interval '2 hours'),
+    date_trunc('minute', now() + interval '6 hours'),
     'org-1',
     'Organiser',
     'published',
+    'EVT-DEMOWELCOMECAMPUSCONNECT01',
     500,
+    now(),
+    now()
+  ),
+  (
+    'evt-2',
+    'Club Fair — Spring',
+    'Meet student clubs and sign up. Published and already underway so lists show a mix of upcoming and in-progress events.',
+    'Student Plaza',
+    date_trunc('minute', now() - interval '2 hours'),
+    date_trunc('minute', now() + interval '5 hours'),
+    'org-1',
+    'Organiser',
+    'published',
+    'EVT-DEMOCLUBFAIRSPRING202602AA',
+    200,
+    now(),
+    now()
+  ),
+  (
+    'evt-3',
+    'Science Week Kickoff (draft)',
+    'Draft event — visible to admins and organiser; students see it as not started until published.',
+    'Science Building Lobby',
+    date_trunc('minute', now() + interval '14 days'),
+    date_trunc('minute', now() + interval '14 days' + interval '3 hours'),
+    'org-1',
+    'Organiser',
+    'draft',
+    'EVT-DEMOSCIWEEKDRAFTPLACE2026BB',
+    120,
+    now(),
+    now()
+  ),
+  (
+    'evt-4',
+    'Sports Day',
+    'Inter-college sports. Published; starts in a few days.',
+    'Athletics Field',
+    date_trunc('minute', now() + interval '10 days'),
+    date_trunc('minute', now() + interval '10 days' + interval '8 hours'),
+    'org-1',
+    'Organiser',
+    'published',
+    'EVT-DEMOSPORTSDAYFIELD202602CC',
+    800,
+    now(),
+    now()
+  ),
+  (
+    'evt-5',
+    'Alumni Networking (completed)',
+    'Past event for testing completed status and history views.',
+    'Alumni Hall',
+    date_trunc('minute', now() - interval '20 days'),
+    date_trunc('minute', now() - interval '20 days' + interval '3 hours'),
+    'org-1',
+    'Organiser',
+    'completed',
+    'EVT-DEMOALUMNIMEETPAST202601DD',
+    150,
+    now(),
+    now()
+  ),
+  (
+    'evt-6',
+    'Teacher-led study skills workshop',
+    'Owned by the demo teacher account so teachers see an event they organise.',
+    'Room 204',
+    date_trunc('minute', now() + interval '5 days'),
+    date_trunc('minute', now() + interval '5 days' + interval '2 hours'),
+    'tea-1',
+    'Teacher',
+    'published',
+    'EVT-DEMOTEACHERWORKSHOP2026EE',
+    40,
     now(),
     now()
   )
@@ -859,14 +1035,47 @@ on conflict (id) do update set
   organiser_id = excluded.organiser_id,
   organiser_name = excluded.organiser_name,
   status = excluded.status,
+  qr_code_data = excluded.qr_code_data,
   max_attendees = excluded.max_attendees,
   updated_at = now();
 
--- Sample attendance so demo roster is non-empty (student scanned event QR)
-insert into public.attendance (id, event_id, user_id, user_name, user_email, scanned_at, qr_code_data)
-select 'att-seed-1', e.id, 'stu-1', 'Student', 'student@gmail.com', now(), e.qr_code_data
-from public.events e
-where e.id = 'evt-1'
+alter table public.events enable trigger trg_events_validate_future_dates;
+commit;
+
+insert into public.event_registrations (id, event_id, user_id, registered_at)
+values
+  ('reg-seed-1', 'evt-2', 'stu-1', now()),
+  ('reg-seed-2', 'evt-4', 'stu-1', now())
+on conflict (event_id, user_id) do nothing;
+
+insert into public.attendance (id, event_id, user_id, user_name, user_email, scanned_at, time_out_at, qr_code_data)
+values (
+  'att-seed-1',
+  'evt-1',
+  'stu-1',
+  'Student',
+  'student@gmail.com',
+  now() - interval '15 minutes',
+  null,
+  'ATTEND:stu-1:evt-1'
+)
+on conflict (event_id, user_id) do update set
+  user_name = excluded.user_name,
+  user_email = excluded.user_email,
+  scanned_at = excluded.scanned_at,
+  qr_code_data = excluded.qr_code_data;
+
+insert into public.attendance (id, event_id, user_id, user_name, user_email, scanned_at, time_out_at, qr_code_data)
+values (
+  'att-seed-2',
+  'evt-2',
+  'stu-1',
+  'Student',
+  'student@gmail.com',
+  now() - interval '1 hour',
+  null,
+  'ATTEND:stu-1:evt-2'
+)
 on conflict (event_id, user_id) do nothing;
 
 -- --- 10_auth_public_users_alignment.sql ---

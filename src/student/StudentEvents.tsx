@@ -21,7 +21,7 @@ export function StudentEvents() {
     <div className="space-y-5 w-full min-w-0">
       <PageHeader
         title="Events"
-        description="Browse campus events. Scan the event QR once it has started to record attendance."
+        description="Browse campus events. When an event has started, open My QR to show your personal code to the organiser for check-in and check-out."
         badge={<RoleBadge>Student</RoleBadge>}
       />
 
@@ -42,8 +42,18 @@ export function StudentEvents() {
 
       <div className="grid gap-4">
         {allEvents.length === 0 ? (
-          <div className="bg-white rounded-xl border border-slate-200 p-12 text-center text-slate-600">
-            No events posted yet. Check back when organisers add events.
+          <div className="bg-white rounded-xl border border-slate-200 p-12 text-center text-slate-600 space-y-3">
+            <p className="font-medium text-slate-800">No events in the database yet</p>
+            <p className="text-sm max-w-md mx-auto">
+              Events come from your Supabase <code className="text-xs bg-slate-100 px-1 rounded">public.events</code>{' '}
+              table. If you expect demo data, run{' '}
+              <code className="text-xs bg-slate-100 px-1 rounded">supabase/sql/06_seed.sql</code> (or{' '}
+              <code className="text-xs bg-slate-100 px-1 rounded">22_demo_events_import.sql</code> after users exist)
+              in the Supabase SQL Editor, then refresh this page.
+            </p>
+            <p className="text-sm text-slate-500">
+              Otherwise, ask an organiser or administrator to publish events — they will appear here for every student.
+            </p>
           </div>
         ) : visibleEvents.length === 0 ? (
           <div className="bg-white rounded-xl border border-slate-200 p-12 text-center text-slate-600">
@@ -84,14 +94,14 @@ export function StudentEvents() {
                 <div className="flex flex-wrap items-center gap-2">
                   {started ? (
                     <Link
-                      to={`/student/scan?eventId=${evt.id}`}
+                      to={`/student/show-qr?eventId=${evt.id}`}
                       className="px-4 py-2 bg-campus-primary text-white rounded-lg font-medium hover:bg-campus-secondary"
                     >
-                      Scan event QR
+                      My QR
                     </Link>
                   ) : (
                     <span className="px-4 py-2 rounded-lg bg-slate-200 text-slate-500 font-medium cursor-not-allowed">
-                      QR for attendance (event not started)
+                      My QR (event not started)
                     </span>
                   )}
                 </div>

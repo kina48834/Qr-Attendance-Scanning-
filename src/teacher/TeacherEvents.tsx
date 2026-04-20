@@ -1,14 +1,16 @@
 import { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import { useAuth } from '@/context/AuthContext';
 import { useData } from '@/context/DataContext';
 import { EventListSearchBar } from '@/components/EventListSearchBar';
 import { filterEventsBySearch } from '@/utils/eventSearch';
 import { format } from 'date-fns';
-import { Calendar, ClipboardList, MapPin, User } from 'lucide-react';
+import { Calendar, ClipboardList, MapPin, User, ScanLine } from 'lucide-react';
 import { PageHeader, RoleBadge } from '@/components/PageHeader';
 import { eventStatusBadgeClass } from '@/utils/eventStatusStyles';
 
 export function TeacherEvents() {
+  const { user } = useAuth();
   const { events, getEventAttendance } = useData();
   const navigate = useNavigate();
   const [search, setSearch] = useState('');
@@ -22,7 +24,7 @@ export function TeacherEvents() {
     <div className="space-y-5">
       <PageHeader
         title="All events"
-        description="Browse campus events and open attendance rosters. You cannot edit or delete events — administrators and organisers handle that."
+        description="Browse campus events, open attendance history, and scan students for events you own. You cannot edit or delete events — administrators and organisers handle that."
         badge={<RoleBadge>Teacher</RoleBadge>}
       />
 
@@ -55,8 +57,8 @@ export function TeacherEvents() {
                 <th className="px-4 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 w-[12%]">
                   Status
                 </th>
-                <th className="px-4 py-3.5 text-right text-xs font-semibold uppercase tracking-wider text-slate-500 w-[18%] min-w-[7rem]">
-                  Roster
+                <th className="px-4 py-3.5 text-right text-xs font-semibold uppercase tracking-wider text-slate-500 w-[22%] min-w-[10rem]">
+                  Actions
                 </th>
               </tr>
             </thead>
@@ -87,16 +89,27 @@ export function TeacherEvents() {
                     <span className={eventStatusBadgeClass(evt.status)}>{evt.status}</span>
                   </td>
                   <td className="px-4 py-4 align-top">
-                    <div className="flex flex-wrap items-center justify-end">
+                    <div className="flex flex-wrap items-center justify-end gap-1.5">
+                      {evt.organiserId === user?.id &&
+                        (evt.status === 'published' || evt.status === 'completed') && (
+                          <Link
+                            to={`/teacher/scan-attendance?eventId=${evt.id}`}
+                            className="inline-flex items-center gap-1.5 rounded-lg bg-campus-primary px-2.5 py-1.5 text-xs font-medium text-white hover:bg-campus-secondary"
+                            title="Scan student QR for this event"
+                          >
+                            <ScanLine className="h-3.5 w-3.5 shrink-0" />
+                            <span className="hidden sm:inline">Scan</span>
+                          </Link>
+                        )}
                       <button
                         type="button"
                         onClick={() => navigate(`/teacher/events/${evt.id}/attendance`)}
                         className="inline-flex items-center gap-1.5 rounded-lg border border-blue-200 bg-blue-50/80 px-2.5 py-1.5 text-xs font-medium text-blue-800 hover:bg-blue-100/80"
-                        title={`Attendance (${getEventAttendance(evt.id).length})`}
+                        title={`Attendance history (${getEventAttendance(evt.id).length})`}
                       >
                         <ClipboardList className="w-3.5 h-3.5 shrink-0" />
-                        <span className="hidden sm:inline">View roster</span>
-                        <span className="sm:hidden">Roster</span>
+                        <span className="hidden sm:inline">Attendance</span>
+                        <span className="sm:hidden">List</span>
                       </button>
                     </div>
                   </td>

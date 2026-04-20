@@ -71,7 +71,7 @@ export function Register() {
         password,
         academicTrack: academic.track as AcademicTrack,
         academicYear: academic.year,
-        academicProgram: academic.track === 'college' ? academic.program : null,
+        academicProgram: academic.program.trim() || null,
         ...(accountRole === 'teacher' && {
           phone: teacherPhone.trim(),
           employeeId: teacherEmployeeId.trim(),

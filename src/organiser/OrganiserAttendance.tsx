@@ -2,10 +2,8 @@ import { Fragment, useState, useEffect, useMemo, useCallback } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { useData } from '@/context/DataContext';
-import { QRCodeDisplay } from '@/components/QR/QRCodeDisplay';
 import { EventListSearchBar } from '@/components/EventListSearchBar';
 import { filterEventsBySearch, textMatchesEventSearch } from '@/utils/eventSearch';
-import { getEventQrCodeData } from '@/utils/attendanceQR';
 import { format } from 'date-fns';
 import { Users, QrCode } from 'lucide-react';
 import { PageHeader, RoleBadge } from '@/components/PageHeader';
@@ -317,15 +315,19 @@ export function OrganiserAttendance() {
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <PageHeader
           title="Attendance"
-          description="Event QR for students, scan student QR codes, and view lists. Export rosters as PDF or Excel."
+          description="Scan each student’s personal event QR (time in, then time out). View lists and export rosters as PDF or Excel."
           badge={<RoleBadge>Organiser</RoleBadge>}
         />
         <Link
-          to="/organiser/scan-attendance"
+          to={
+            selectedEventId
+              ? `/organiser/scan-attendance?eventId=${encodeURIComponent(selectedEventId)}`
+              : '/organiser/scan-attendance'
+          }
           className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-campus-primary px-5 py-2.5 text-sm font-semibold text-white shadow-md shadow-blue-500/15 transition-colors hover:bg-campus-secondary"
         >
           <QrCode className="h-4 w-4" aria-hidden />
-          Scan student QR codes
+          Scan for this event
         </Link>
       </div>
 
@@ -348,29 +350,28 @@ export function OrganiserAttendance() {
 
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
         <div className="rounded-2xl border border-slate-200/90 bg-white p-6 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
-          <h2 className="font-semibold text-slate-900">Event QR code</h2>
+          <h2 className="font-semibold text-slate-900">Check-in &amp; check-out</h2>
           <p className="mt-1 text-sm text-slate-600">
-            Students scan this event QR (Scan QR) to record attendance.
+            Students use <strong>My QR</strong> in their app — a unique code per event. Scan it with{' '}
+            <strong>Scan for this event</strong>: first scan records time in, second scan records time out.
           </p>
-          <div className="mt-4 flex flex-col items-center">
-            {selectedEvent ? (
-              <>
-                <QRCodeDisplay
-                  value={getEventQrCodeData(selectedEvent.id, selectedEvent.qrCodeData)}
-                  size={220}
-                  eventTitle={selectedEvent.title}
-                />
-                <p className="mt-2 font-mono text-xs text-slate-500">
-                  Event code: {getEventQrCodeData(selectedEvent.id, selectedEvent.qrCodeData)}
-                </p>
-                <p className="mt-0.5 text-center text-xs text-slate-500">
-                  Students scan this QR on the Scan QR page to record attendance.
-                </p>
-              </>
-            ) : (
-              <div className="py-8 text-slate-500">Select an event to show its QR code.</div>
-            )}
-          </div>
+          {selectedEvent ? (
+            <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50/80 p-4">
+              <p className="text-sm font-medium text-slate-900">{selectedEvent.title}</p>
+              <p className="mt-2 text-xs text-slate-600">
+                {format(new Date(selectedEvent.startDate), 'MMM d, yyyy HH:mm')} · {selectedEvent.location}
+              </p>
+              <Link
+                to={`/organiser/scan-attendance?eventId=${encodeURIComponent(selectedEvent.id)}`}
+                className="mt-3 inline-flex items-center gap-2 rounded-lg bg-campus-primary px-4 py-2 text-sm font-semibold text-white hover:bg-campus-secondary"
+              >
+                <QrCode className="h-4 w-4" aria-hidden />
+                Open scanner for this event
+              </Link>
+            </div>
+          ) : (
+            <p className="mt-4 text-sm text-slate-500">Select an event below to open the scanner for that event.</p>
+          )}
           <div className="mt-4">
             <label htmlFor="organiser-attendance-event-select" className="mb-2 block text-sm font-medium text-slate-700">
               Select event

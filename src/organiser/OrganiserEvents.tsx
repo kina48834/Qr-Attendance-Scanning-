@@ -5,7 +5,7 @@ import { useData } from '@/context/DataContext';
 import { EventListSearchBar } from '@/components/EventListSearchBar';
 import { filterEventsBySearch } from '@/utils/eventSearch';
 import { format } from 'date-fns';
-import { Calendar, MapPin, Edit2, Trash2, QrCode, Users, Play, Undo2 } from 'lucide-react';
+import { Calendar, MapPin, Edit2, Trash2, Users, Play, Undo2, ScanLine } from 'lucide-react';
 import { PageHeader, RoleBadge } from '@/components/PageHeader';
 import { eventStatusBadgeClass } from '@/utils/eventStatusStyles';
 
@@ -133,18 +133,18 @@ export function OrganiserEvents() {
                     </button>
                   )}
                   <Link
+                    to={`/organiser/scan-attendance?eventId=${evt.id}`}
+                    className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-campus-primary text-white font-medium hover:bg-campus-secondary"
+                  >
+                    <ScanLine className="w-4 h-4" />
+                    Scan for this event
+                  </Link>
+                  <Link
                     to={`/organiser/attendance?eventId=${evt.id}`}
                     className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-campus-primary text-campus-primary bg-campus-primary/5 font-medium hover:bg-campus-primary/10"
                   >
                     <Users className="w-4 h-4" />
-                    See attendance list
-                  </Link>
-                  <Link
-                    to={`/organiser/attendance?eventId=${evt.id}`}
-                    className="p-2 rounded-lg border border-slate-200 hover:bg-slate-50"
-                    title="View QR / Attendance"
-                  >
-                    <QrCode className="w-5 h-5 text-slate-600" />
+                    Attendance history
                   </Link>
                   <button
                     type="button"

@@ -101,7 +101,7 @@ function departmentFromAcademicOrLegacy(
       department: line,
       track: academic.track,
       year: academic.year,
-      program: academic.track === 'college' ? (academic.program || '').trim() || null : null,
+      program: (academic.program || '').trim() || null,
     };
   }
   return {
@@ -402,6 +402,29 @@ export async function setAttendanceTimeOut(attendanceId: string, userId: string)
   if (!data) {
     throw new Error(
       'Could not record time out. It may already be set, or this record does not belong to your account.'
+    );
+  }
+  return toAttendance(data as AttendanceRow);
+}
+
+/** Organiser (or app): set time out by event + student when the same attendance QR is scanned a second time. */
+export async function setAttendanceTimeOutForEventUser(
+  eventId: string,
+  userId: string
+): Promise<AttendanceRecord> {
+  const now = new Date().toISOString();
+  const { data, error } = await supabase
+    .from('attendance')
+    .update({ time_out_at: now })
+    .eq('event_id', eventId)
+    .eq('user_id', userId)
+    .is('time_out_at', null)
+    .select('*')
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) {
+    throw new Error(
+      'Could not record time out. The student may not be checked in yet, or checkout was already recorded.'
     );
   }
   return toAttendance(data as AttendanceRow);

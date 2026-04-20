@@ -7,6 +7,7 @@ import { TeacherEvents } from './TeacherEvents';
 import { TeacherAnalytics } from './TeacherAnalytics';
 import { TeacherProfile } from './TeacherProfile';
 import { TeacherEventAttendancePage } from '@/components/EventAttendanceRoster';
+import { TeacherScanAttendance } from './TeacherScanAttendance';
 import { effectiveUserApproval } from '@/utils/userApproval';
 
 export function TeacherRoutes() {
@@ -47,6 +48,7 @@ export function TeacherRoutes() {
         <Route path="events/new" element={<Navigate to="/teacher/events" replace />} />
         <Route path="events/edit/:eventId" element={<Navigate to="/teacher/events" replace />} />
         <Route path="events/:eventId/attendance" element={<TeacherEventAttendancePage />} />
+        <Route path="scan-attendance" element={<TeacherScanAttendance />} />
         <Route path="users" element={<Navigate to="/teacher" replace />} />
         <Route path="profile" element={<TeacherProfile />} />
         <Route path="analytics" element={<TeacherAnalytics />} />

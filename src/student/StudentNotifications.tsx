@@ -46,7 +46,7 @@ export function StudentNotifications() {
         <div className="p-4 space-y-3">
           {upcoming.length === 0 ? (
             <p className="text-sm text-slate-600">
-              No open published events missing your attendance. When organisers publish events, they will appear here until you scan the event QR.
+              No open published events missing your attendance. When organisers publish events, they will appear here until you check in with your personal event QR.
             </p>
           ) : (
             upcoming.map((evt) => (
@@ -69,10 +69,10 @@ export function StudentNotifications() {
                   </div>
                 </div>
                 <Link
-                  to={`/student/scan?eventId=${evt.id}`}
+                  to={`/student/show-qr?eventId=${evt.id}`}
                   className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg bg-campus-primary px-4 py-2 text-sm font-semibold text-white hover:bg-campus-secondary"
                 >
-                  Scan QR
+                  My QR
                   <ArrowRight className="h-4 w-4" aria-hidden />
                 </Link>
               </div>

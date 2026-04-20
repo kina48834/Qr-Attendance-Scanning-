@@ -112,9 +112,8 @@ export function PublicHome() {
               Plan. Track. Participate.
             </p>
             <p className="mt-5 text-white/85 text-base sm:text-lg leading-relaxed">
-              Campus Connect brings events, attendance, and analytics into one place. Organisers publish activities,
-              students check in with a single QR scan, and dashboards keep everyone aligned — all backed by your live
-              campus data.
+              Campus Connect brings events, attendance, and analytics into one place. Students show a personal QR per
+              event; organisers scan it to check them in and out, and dashboards stay aligned with your live campus data.
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
               <Link
@@ -279,8 +278,8 @@ export function PublicHome() {
             </div>
             <h2 className="text-lg font-bold text-slate-900 mb-2">QR Attendance</h2>
             <p className="text-sm text-slate-600 leading-relaxed mb-6">
-              One secure QR per event. Students scan with their device and attendance is recorded instantly — no paper
-              lists.
+              Each student gets a unique QR for each event. Organisers scan it for time in and again for time out — no
+              paper lists.
             </p>
             <div className="relative rounded-2xl bg-slate-900/5 border border-slate-100 h-28 flex items-center justify-center gap-4">
               <div className="w-10 h-16 rounded-lg border-2 border-slate-300 bg-white shadow-md flex flex-col items-center pt-1 gap-0.5">
@@ -328,9 +327,9 @@ export function PublicHome() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-sm">
             {[
               ['Administrator', 'System-wide users, events, and attendance with full analytics.'],
-              ['Organiser', 'Run events, show QR codes, and monitor live attendance.'],
-              ['Teacher', 'View event rosters and attendance; event setup stays with organisers and admins.'],
-              ['Student', 'Browse events, register, and scan QR to record attendance.'],
+              ['Organiser', 'Run events, scan student QR codes for check-in/out, and monitor attendance.'],
+              ['Teacher', 'View rosters and scan students for events you own; setup stays with organisers and admins.'],
+              ['Student', 'Browse events and show your personal QR so organisers can record attendance.'],
             ].map(([title, desc]) => (
               <div key={title} className="p-4 rounded-2xl bg-slate-50/90 border border-slate-100 hover:border-campus-primary/20 transition-colors">
                 <span className="font-semibold text-slate-900">{title}</span>
