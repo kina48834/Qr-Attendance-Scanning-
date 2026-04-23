@@ -1,14 +1,18 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useData } from '@/context/DataContext';
+import { useAuth } from '@/context/AuthContext';
 import { EventListSearchBar } from '@/components/EventListSearchBar';
 import { filterEventsBySearch } from '@/utils/eventSearch';
 import { format } from 'date-fns';
-import { ArrowLeft, Calendar, QrCode } from 'lucide-react';
+import { ArrowLeft, Calendar, QrCode, User } from 'lucide-react';
+import { formatUserAcademicLine } from '@/utils/academicProfileDisplay';
 
 export function StudentScan() {
+  const { user } = useAuth();
   const { events } = useData();
   const [eventListSearch, setEventListSearch] = useState('');
+  const academicLine = user ? formatUserAcademicLine(user) : null;
 
   const allEventsForList = useMemo(
     () => [...events].sort((a, b) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime()),
@@ -30,6 +34,28 @@ export function StudentScan() {
           <strong>second scan</strong> records time out.
         </p>
       </div>
+
+      {user && (
+        <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+          <p className="mb-3 text-sm font-semibold text-slate-900">Your profile</p>
+          <div className="flex items-start gap-3">
+            <div className="h-14 w-14 shrink-0 overflow-hidden rounded-full border border-slate-200 bg-slate-100">
+              {user.avatar ? (
+                <img src={user.avatar} alt={`${user.name} profile`} className="h-full w-full object-cover" />
+              ) : (
+                <div className="flex h-full w-full items-center justify-center text-slate-400">
+                  <User className="h-5 w-5" />
+                </div>
+              )}
+            </div>
+            <div className="min-w-0 space-y-1 text-sm">
+              <p className="font-semibold text-slate-900">{user.name}</p>
+              <p className="break-all text-slate-600">{user.email}</p>
+              {academicLine && <p className="text-slate-600">{academicLine}</p>}
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
         <div className="space-y-3 border-b border-slate-200 px-5 py-4">

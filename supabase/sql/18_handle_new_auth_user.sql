@@ -121,10 +121,10 @@ begin
       else
         yr_label :=
           case v_year
-            when '1' then '1st — First year'
-            when '2' then '2nd — Second year'
-            when '3' then '3rd — Third year'
-            when '4' then '4th — Fourth year'
+            when '1' then '1st'
+            when '2' then '2nd'
+            when '3' then '3rd'
+            when '4' then '4th'
           end;
         v_dept := 'College — ' || v_program || ' — ' || yr_label;
       end if;

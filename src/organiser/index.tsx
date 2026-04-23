@@ -7,6 +7,7 @@ import { OrganiserEventForm } from './OrganiserEventForm';
 import { OrganiserAttendance } from './OrganiserAttendance';
 import { OrganiserScanAttendance } from './OrganiserScanAttendance';
 import { OrganiserAnalytics } from './OrganiserAnalytics';
+import { OrganiserProfile } from './OrganiserProfile';
 
 export function OrganiserRoutes() {
   const { user, isAuthenticated } = useAuth();
@@ -28,6 +29,7 @@ export function OrganiserRoutes() {
         <Route path="attendance" element={<OrganiserAttendance />} />
         <Route path="scan-attendance" element={<OrganiserScanAttendance />} />
         <Route path="analytics" element={<OrganiserAnalytics />} />
+        <Route path="profile" element={<OrganiserProfile />} />
         <Route path="*" element={<Navigate to="/organiser" replace />} />
       </Routes>
     </AppLayout>

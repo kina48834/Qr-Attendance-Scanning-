@@ -708,8 +708,12 @@ function UserManagementRow({
                   <td className="px-2 py-4 align-top tabular-nums text-slate-500 font-medium">{rowNum}</td>
                   <td className="px-4 py-4 align-top">
                     <div className="flex items-start gap-2.5">
-                      <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-500">
-                        <UserIcon className="h-4 w-4" aria-hidden />
+                      <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-slate-100 text-slate-500">
+                        {u.avatar ? (
+                          <img src={u.avatar} alt={`${u.name} profile`} className="h-full w-full object-cover" />
+                        ) : (
+                          <UserIcon className="h-4 w-4" aria-hidden />
+                        )}
                       </span>
                       <div className="min-w-0">
                         <p className="font-semibold leading-snug text-slate-900">{u.name}</p>

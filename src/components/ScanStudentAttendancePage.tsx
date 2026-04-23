@@ -4,8 +4,9 @@ import { useAuth } from '@/context/AuthContext';
 import { useData } from '@/context/DataContext';
 import { QRScanner } from '@/components/QR/QRScanner';
 import { parseAttendanceQR, normalizeQrValue } from '@/utils/attendanceQR';
+import { formatUserAcademicLine } from '@/utils/academicProfileDisplay';
 import { format } from 'date-fns';
-import { CheckCircle, XCircle, ArrowLeft } from 'lucide-react';
+import { CheckCircle, XCircle, ArrowLeft, User } from 'lucide-react';
 
 const SCAN_DEBOUNCE_MS = 2000;
 
@@ -25,6 +26,7 @@ export function ScanStudentAttendancePage({ backPath, backLabel = 'Back', scanBa
 
   const [scanning, setScanning] = useState(false);
   const [result, setResult] = useState<{ type: 'success' | 'invalid'; message: string } | null>(null);
+  const [lastScannedUserId, setLastScannedUserId] = useState<string | null>(null);
   const lastProcessedRef = useRef<{ value: string; at: number } | null>(null);
 
   const myEventIds = useMemo(
@@ -71,6 +73,8 @@ export function ScanStudentAttendancePage({ backPath, backLabel = 'Back', scanBa
       }
 
       const event = events.find((e) => e.id === qrEventId);
+      const attendee = users.find((u) => u.id === studentUserId);
+      setLastScannedUserId(studentUserId);
       if (!event) {
         setResult({ type: 'invalid', message: 'Event not found.' });
         setTimeout(() => setResult(null), 3000);
@@ -100,14 +104,12 @@ export function ScanStudentAttendancePage({ backPath, backLabel = 'Back', scanBa
             return;
           }
           await recordCheckoutScan(qrEventId, studentUserId, user.id);
-          const attendee = users.find((u) => u.id === studentUserId);
           const userName = attendee?.name ?? 'Student';
           setResult({
             type: 'success',
             message: `${userName} — time out recorded for "${event.title}".`,
           });
         } else {
-          const attendee = users.find((u) => u.id === studentUserId);
           const userName = attendee?.name ?? 'Unknown';
           const userEmail = attendee?.email ?? '';
           await recordAttendance({
@@ -132,6 +134,9 @@ export function ScanStudentAttendancePage({ backPath, backLabel = 'Back', scanBa
     },
     [events, users, attendance, recordAttendance, recordCheckoutScan, myEventIds, user, eventIdFromUrl]
   );
+
+  const lastScannedUser = lastScannedUserId ? users.find((u) => u.id === lastScannedUserId) : null;
+  const lastScannedAcademicLine = lastScannedUser ? formatUserAcademicLine(lastScannedUser) : null;
 
   if (!scanning) {
     return (
@@ -246,6 +251,31 @@ export function ScanStudentAttendancePage({ backPath, backLabel = 'Back', scanBa
             <XCircle className="h-6 w-6 shrink-0 text-amber-600" />
           )}
           <p className="font-medium">{result.message}</p>
+        </div>
+      )}
+      {lastScannedUser && (
+        <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+          <p className="mb-3 text-sm font-semibold text-slate-900">Scanned student profile</p>
+          <div className="flex items-start gap-3">
+            <div className="h-14 w-14 shrink-0 overflow-hidden rounded-full border border-slate-200 bg-slate-100">
+              {lastScannedUser.avatar ? (
+                <img
+                  src={lastScannedUser.avatar}
+                  alt={`${lastScannedUser.name} profile`}
+                  className="h-full w-full object-cover"
+                />
+              ) : (
+                <div className="flex h-full w-full items-center justify-center text-slate-400">
+                  <User className="h-5 w-5" />
+                </div>
+              )}
+            </div>
+            <div className="min-w-0 space-y-1 text-sm">
+              <p className="font-semibold text-slate-900">{lastScannedUser.name}</p>
+              <p className="break-all text-slate-600">{lastScannedUser.email}</p>
+              {lastScannedAcademicLine && <p className="text-slate-600">{lastScannedAcademicLine}</p>}
+            </div>
+          </div>
         </div>
       )}
     </div>

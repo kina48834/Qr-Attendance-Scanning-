@@ -7,6 +7,7 @@ import { AdminEventForm } from './AdminEventForm';
 import { AdminUsers } from './AdminUsers';
 import { AdminAnalytics } from './AdminAnalytics';
 import { AdminEventAttendancePage } from '@/components/EventAttendanceRoster';
+import { AdminProfile } from './AdminProfile';
 
 export function AdminRoutes() {
   const { user, isAuthenticated } = useAuth();
@@ -28,6 +29,7 @@ export function AdminRoutes() {
         <Route path="events/:eventId/attendance" element={<AdminEventAttendancePage />} />
         <Route path="users" element={<AdminUsers />} />
         <Route path="analytics" element={<AdminAnalytics />} />
+        <Route path="profile" element={<AdminProfile />} />
         <Route path="*" element={<Navigate to="/admin" replace />} />
       </Routes>
     </AppLayout>

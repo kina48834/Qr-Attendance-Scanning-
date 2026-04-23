@@ -81,11 +81,11 @@ comment on column public.users.approval_status is 'Student/teacher approval: pen
 comment on column public.users.phone is 'Teacher profile; required when role = teacher.';
 comment on column public.users.department is 'Summary line for lists/search; set from Department (Register/Admin) for students/teachers (formatAcademicDepartmentLine) or legacy teacher text.';
 comment on column public.users.academic_track is 'junior_high | senior_high | college — Register.tsx / AdminUsers.tsx: interactive Track buttons, grade/year buttons, and section/strand/program buttons. Rosters: JH (years 1–4 stored, UI Grade 7–10), SH (11–12), college (years 1–4 + program).';
-comment on column public.users.academic_year is 'JH: stored 1–4 maps to UI Grade 7–10; SH: 11–12 (Grade 11/12); college: 1–4 with 1st–Fourth year labels in app; idx_users_academic_roster matches app ordering.';
+comment on column public.users.academic_year is 'JH: stored 1–4 maps to UI Grade 7–10; SH: 11–12 (Grade 11/12); college: 1–4 with 1st/2nd/3rd/4th labels in app; idx_users_academic_roster matches app ordering.';
 comment on column public.users.academic_program is 'Track-specific subgroup selected in registration/admin Department UI via button selectors: JH section list by grade, SH strand/track list (BE/ASSH/STEM/TECHPRO), or college program (COLLEGE_PROGRAMS). Used in subgrouping and roster sort/display.';
 comment on column public.users.employee_id is 'Teacher staff ID; required when role = teacher.';
 comment on column public.users.office_location is 'Optional teacher office/room.';
-comment on column public.users.avatar is 'Optional profile image URL (reserved for future UI).';
+comment on column public.users.avatar is 'Optional profile image (URL or data URL) shown in profile pages, scanner result cards, and Admin user management.';
 
 comment on table public.events is
   'Events browsed by students. Inserts/updates: admin / organiser (app). Teachers view events and attendance rosters only — no edit/delete in app; teacher Events UI does not add new rows.';

@@ -166,8 +166,12 @@ export function AppLayout({ children, navItems, role }: AppLayoutProps) {
         </nav>
         <div className="p-2 border-t border-campus-primary shrink-0">
           <div className={`px-3 py-2 flex items-center gap-3 rounded-xl bg-campus-primary/15 ${!sidebarOpen && !mobileMenuOpen ? 'justify-center' : ''}`}>
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-campus-primary/30 ring-2 ring-white/20">
-              <User className="w-4 h-4" />
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-campus-primary/30 ring-2 ring-white/20">
+              {user?.avatar ? (
+                <img src={user.avatar} alt={`${user.name} profile`} className="h-full w-full object-cover" />
+              ) : (
+                <User className="w-4 h-4" />
+              )}
             </div>
             {(sidebarOpen || mobileMenuOpen) && (
               <div className="min-w-0">
@@ -222,6 +226,7 @@ export const adminNav = [
   { to: '/admin/events', label: 'Events', icon: <Calendar className="w-5 h-5" /> },
   { to: '/admin/users', label: 'Users', icon: <Users className="w-5 h-5" /> },
   { to: '/admin/analytics', label: 'Analytics', icon: <BarChart3 className="w-5 h-5" /> },
+  { to: '/admin/profile', label: 'Profile', icon: <User className="w-5 h-5" /> },
 ];
 
 export const organiserNav = [
@@ -230,6 +235,7 @@ export const organiserNav = [
   { to: '/organiser/events/new', label: 'New Event', icon: <Calendar className="w-5 h-5" /> },
   { to: '/organiser/attendance', label: 'Attendance', icon: <QrCode className="w-5 h-5" /> },
   { to: '/organiser/analytics', label: 'Analytics', icon: <BarChart3 className="w-5 h-5" /> },
+  { to: '/organiser/profile', label: 'Profile', icon: <User className="w-5 h-5" /> },
 ];
 
 export const studentNav = [

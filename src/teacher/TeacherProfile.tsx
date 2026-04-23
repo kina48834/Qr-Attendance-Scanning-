@@ -4,6 +4,7 @@ import { useData } from '@/context/DataContext';
 import { User, Mail, Calendar, Building2, Phone, IdCard } from 'lucide-react';
 import { format } from 'date-fns';
 import { formatUserAcademicLine } from '@/utils/academicProfileDisplay';
+import { ProfileAccountSettings } from '@/components/profile/ProfileAccountSettings';
 
 export function TeacherProfile() {
   const { user } = useAuth();
@@ -112,6 +113,8 @@ export function TeacherProfile() {
           <div className="p-8 text-center text-slate-500">No attendance rows for your account yet.</div>
         )}
       </div>
+
+      <ProfileAccountSettings roleLabel="Teacher" />
     </div>
   );
 }

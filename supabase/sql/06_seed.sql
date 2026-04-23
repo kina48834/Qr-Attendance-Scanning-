@@ -32,7 +32,7 @@ values
     'student',
     'approved',
     null,
-    'College — BS Information Technology — 1st — First year',
+    'College — BS Information Technology — 1st',
     null,
     'college',
     '1',

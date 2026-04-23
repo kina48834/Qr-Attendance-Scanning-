@@ -35,10 +35,10 @@ export const SENIOR_HIGH_STRANDS = [
 ] as const;
 
 export const COLLEGE_YEAR_OPTIONS = [
-  { value: '1', label: '1st — First year' },
-  { value: '2', label: '2nd — Second year' },
-  { value: '3', label: '3rd — Third year' },
-  { value: '4', label: '4th — Fourth year' },
+  { value: '1', label: '1st' },
+  { value: '2', label: '2nd' },
+  { value: '3', label: '3rd' },
+  { value: '4', label: '4th' },
 ] as const;
 
 export const COLLEGE_PROGRAMS = [
